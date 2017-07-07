@@ -36,9 +36,11 @@ use token::Token::*;
 #[derive(Debug)]
 enum NodeType {
     HorRule,
+    LineFeed,
     PageBrk,
-    Par,
+    TextWord,
     TokErr,
+    WhiteSpace,
 }
 
 /// Asciidoctor parser.
@@ -67,8 +69,12 @@ impl<R: BufRead> Parser<R> {
         let ty = self.node_type()?;
         match ty {
             HorRule => self.horizontal_rule(),
-            Par => self.paragraph(),
             PageBrk => self.page_break(),
+            LineFeed | WhiteSpace => {
+                self.tokens.next();
+                self.nodes()
+            },
+            TextWord => self.paragraph(),
             TokErr => {
                 if let Some(Err(err)) = self.tokens.next() {
                     bail!(err);
@@ -85,9 +91,11 @@ impl<R: BufRead> Parser<R> {
             match self.tokens.peek() {
                 Some(&Ok(ref token)) =>
                     match *token {
-                        Text(_) => Par,
+                        NewLine => LineFeed,
+                        Space => WhiteSpace,
                         TripleApos => HorRule,
                         TripleLt => PageBrk,
+                        Word(_) => TextWord,
                     },
                 Some(&Err(_)) => TokErr,
                 None => bail!(Eof),
@@ -104,13 +112,32 @@ impl<R: BufRead> Parser<R> {
     /// Parse a paragraph.
     fn paragraph(&mut self) -> Result<Node> {
         let mut string = String::new();
+        let mut previous_token_is_nl = false;
         // TODO: use a macro to eat.
-        while let Par = self.node_type()? {
-            if let Some(Ok(Text(bytes))) = self.tokens.next() {
-                string.push_str(&String::from_utf8(bytes)?);
+        loop {
+            let ty = self.node_type()?;
+            match ty {
+                LineFeed | TextWord | WhiteSpace => (),
+                _ => break,
             }
-            else {
-                bail!("Should have got text token");
+            match self.tokens.next() {
+                Some(Ok(NewLine)) => {
+                    if previous_token_is_nl {
+                        break
+                    }
+                    else {
+                        previous_token_is_nl = true;
+                    }
+                },
+                Some(Ok(Space)) => {
+                    previous_token_is_nl = false;
+                    string.push(' ');
+                },
+                Some(Ok(Word(bytes))) => {
+                    previous_token_is_nl = false;
+                    string.push_str(&String::from_utf8(bytes)?);
+                },
+                _ => bail!("Should have got text token"),
             }
         }
         Ok(Paragraph(string))

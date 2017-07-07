@@ -68,12 +68,17 @@ impl<R: Read> Lexer<R> {
 
     /// Advance until the end of the line.
     fn advance_to_eol(&mut self) -> Result<()> {
+        self.advance_while(|c| c != b'\n')
+    }
+
+    /// Advance while the predicate is true.
+    fn advance_while<F: Fn(u8) -> bool>(&mut self, predicate: F) -> Result<()> {
         loop {
             self.read_if_needed()?;
-            if self.buffer[self.buffer_index] == b'\n' {
+            let actual = self.current_char()?;
+            if !predicate(actual) {
                 break;
             }
-            let actual = self.buffer[self.buffer_index];
             self.advance(actual);
         }
         Ok(())
@@ -83,14 +88,35 @@ impl<R: Read> Lexer<R> {
     fn comment(&mut self) -> Result<()> {
         self.eat(b'/')?;
         self.eat(b'/')?;
-        self.advance_to_eol()?;
+
+        // Try to parse a multiline comment.
+        if self.current_char()? == b'/' {
+            self.eat(b'/');
+            self.eat(b'/');
+
+            let comment_delim = b"////";
+            while &self.buffer[self.buffer_index..self.buffer_index + comment_delim.len()] != comment_delim {
+                self.eat(b'\n');
+                self.advance_to_eol()?;
+            }
+        }
+        else {
+            // Single comment.
+            self.advance_to_eol()?;
+        }
         Ok(())
+    }
+
+    /// Get the current character (filling the buffer if needed).
+    fn current_char(&mut self) -> Result<u8> {
+        self.read_if_needed()?;
+        Ok(self.buffer[self.buffer_index])
     }
 
     /// Eat the next character if it is the one specified in the parameter.
     fn eat(&mut self, expected: u8) -> Result<()> {
         self.read_if_needed()?;
-        let actual = self.buffer[self.buffer_index];
+        let actual = self.current_char()?;
         if actual == expected {
             self.advance(actual);
             Ok(())
@@ -104,11 +130,10 @@ impl<R: Read> Lexer<R> {
         }
     }
 
-    /// Parse a line of text.
-    fn line(&mut self) -> Result<Token> {
-        let start_index = self.buffer_index;
-        self.advance_to_eol()?;
-        Ok(Text(self.buffer[start_index..self.buffer_index].to_vec()))
+    /// Parse a new line.
+    fn newline(&mut self) -> Result<Token> {
+        self.eat(b'\n')?;
+        Ok(NewLine)
     }
 
     /// Get the current position in the file.
@@ -128,10 +153,16 @@ impl<R: Read> Lexer<R> {
         Ok(())
     }
 
+    /// Parse a space.
+    fn space(&mut self) -> Result<Token> {
+        self.eat(b' ')?;
+        Ok(Space)
+    }
+
     /// Get the next token from the file.
     fn token(&mut self) -> Result<Token> {
         self.read_if_needed()?;
-        let actual = self.buffer[self.buffer_index];
+        let actual = self.current_char()?;
         match actual {
             b'/' => {
                 self.comment()?;
@@ -139,11 +170,13 @@ impl<R: Read> Lexer<R> {
             },
             b'<' => self.triple_lt(),
             b'\'' => self.triple_apos(),
-            b'\n' | b'\r' => {
+            b'\n' => self.newline(),
+            b'\r' => {
                 self.advance(actual);
                 self.token()
             },
-            _ => self.line(),
+            b' ' => self.space(),
+            _ => self.word(),
         }
     }
 
@@ -161,6 +194,13 @@ impl<R: Read> Lexer<R> {
         self.eat(b'<')?;
         self.eat(b'<')?;
         Ok(TripleLt)
+    }
+
+    /// Parse a word.
+    fn word(&mut self) -> Result<Token> {
+        let start_index = self.buffer_index;
+        self.advance_while(|c| !b" *_`#[^~:\n\r\t".contains(&c))?;
+        Ok(Word(self.buffer[start_index..self.buffer_index].to_vec()))
     }
 }
 
