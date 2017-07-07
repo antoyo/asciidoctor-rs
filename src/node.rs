@@ -22,6 +22,7 @@
 /// This is a recursive node structure that represents part of a asciidoctor document.
 #[derive(Debug)]
 pub enum Node {
+    HorizontalRule,
     PageBreak,
     Paragraph(String),
 }

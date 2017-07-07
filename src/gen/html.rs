@@ -61,9 +61,14 @@ impl<'a, W: Write + 'a> Generator<'a, W> {
 pub trait HtmlGen<W: Write> {
     fn node(&mut self, node: &Node) -> Result<()> {
         match *node {
+            HorizontalRule => self.horizontal_rule(),
             PageBreak => self.page_break(),
             Paragraph(ref text) => self.paragraph(text),
         }
+    }
+
+    fn horizontal_rule(&mut self) -> Result<()> {
+        self.write(hr())
     }
 
     fn page_break(&mut self) -> Result<()> {
@@ -96,6 +101,10 @@ fn div_a(attributes: String, children: String) -> String {
 
 fn empty() -> String {
     String::new()
+}
+
+fn hr() -> String {
+    tag("hr", "")
 }
 
 fn p(children: String) -> String {

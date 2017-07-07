@@ -24,18 +24,18 @@
 use std::io::BufRead;
 use std::iter::Peekable;
 
-use error::ErrorKind::{Eof, UnexpectedChar};
+use error::ErrorKind::Eof;
 use error::Result;
 use lexer::Lexer;
 use node::Node;
 use node::Node::*;
 use self::NodeType::*;
-use token::Token;
 use token::Token::*;
 
 /// Type of node to parse.
 #[derive(Debug)]
 enum NodeType {
+    HorRule,
     PageBrk,
     Par,
     TokErr,
@@ -56,10 +56,17 @@ impl<R: BufRead> Parser<R> {
         }
     }
 
+    /// Parse an horizontal rule.
+    fn horizontal_rule(&mut self) -> Result<Node> {
+        self.tokens.next(); // TODO: use a macro to eat.
+        Ok(HorizontalRule)
+    }
+
     /// An iterator over the nodes of the document.
     pub fn nodes(&mut self) -> Result<Node> {
         let ty = self.node_type()?;
         match ty {
+            HorRule => self.horizontal_rule(),
             Par => self.paragraph(),
             PageBrk => self.page_break(),
             TokErr => {
@@ -79,6 +86,7 @@ impl<R: BufRead> Parser<R> {
                 Some(&Ok(ref token)) =>
                     match *token {
                         Text(_) => Par,
+                        TripleApos => HorRule,
                         TripleLt => PageBrk,
                     },
                 Some(&Err(_)) => TokErr,

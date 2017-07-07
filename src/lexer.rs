@@ -138,12 +138,21 @@ impl<R: Read> Lexer<R> {
                 self.token()
             },
             b'<' => self.triple_lt(),
+            b'\'' => self.triple_apos(),
             b'\n' | b'\r' => {
                 self.advance(actual);
                 self.token()
             },
             _ => self.line(),
         }
+    }
+
+    /// Parse three '.
+    fn triple_apos(&mut self) -> Result<Token> {
+        self.eat(b'\'')?;
+        self.eat(b'\'')?;
+        self.eat(b'\'')?;
+        Ok(TripleApos)
     }
 
     /// Parse three <.

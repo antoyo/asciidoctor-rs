@@ -34,6 +34,7 @@ mod token;
 
 use std::io::{Read, Write};
 
+pub use error::{Error, ErrorKind, Result, ResultExt};
 pub use gen::html;
 pub use lexer::Lexer;
 pub use node::Node;

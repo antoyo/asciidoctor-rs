@@ -21,17 +21,24 @@
 
 extern crate asciidoctor;
 extern crate html_diff;
-#[macro_use]
-extern crate pretty_assertions;
+
+use std::fs::File;
+use std::io::Read;
 
 use html_diff::get_differences;
 
-use asciidoctor::{Lexer, Parser};
+use asciidoctor::{Error, Lexer, Parser};
+use asciidoctor::ErrorKind::Eof;
 use asciidoctor::html::{self, Generator};
 
 #[test]
 fn test_parse_gen() {
-    let file = include_str!("input/block_page_break.adoc");
+    generate_html_and_cmp("block_page_break");
+    generate_html_and_cmp("block_thematic_break");
+}
+
+fn generate_html_and_cmp(name: &str) {
+    let file = read_file(&format!("input/{}.adoc", name));
     let lexer = Lexer::new(file.as_bytes());
     let mut parser = Parser::new(lexer);
     let mut html = vec![];
@@ -41,21 +48,28 @@ fn test_parse_gen() {
             let node = parser.nodes();
             match node {
                 Ok(node) => html::gen(&mut generator, &node).unwrap(),
-                Err(Eof) => break,
+                Err(Error(Eof, _)) => break,
                 Err(err) => panic!("cannot parse asciidoctor: {}", err),
             }
         }
     }
     let html = String::from_utf8(html).unwrap();
 
-    let result_file = include_str!("output/block_page_break.html");
-    let differences = get_differences(result_file, &html);
+    let result_file = read_file(&format!("output/{}.html", name));
+    let differences = get_differences(&result_file, &html);
     if !differences.is_empty() {
         let mut diffs = "\n".to_string();
         for diff in differences {
             diffs += &diff.to_string();
             diffs += "\n";
         }
-        assert!(false, diffs);
+        assert_eq!(result_file, html);
     }
+}
+
+fn read_file(filename: &str) -> String {
+    let mut string = String::new();
+    let mut file = File::open(format!("tests/{}", filename)).unwrap();
+    file.read_to_string(&mut string).unwrap();
+    string
 }

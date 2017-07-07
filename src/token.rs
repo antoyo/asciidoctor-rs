@@ -26,5 +26,6 @@
 pub enum Token {
     /// A line of text.
     Text(Vec<u8>),
+    TripleApos,
     TripleLt,
 }
