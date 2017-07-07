@@ -1,0 +1,5 @@
+// .basic
+[source]
+----
+"Hello world!" // <1>
+----

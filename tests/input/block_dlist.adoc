@@ -1,0 +1,99 @@
+// .basic
+Asciidoctor:: An implementation of the AsciiDoc processor in Ruby.
+Asciidoc::
+  A text document format for writing notes, documentation, articles, books,
+  ebooks, slideshows, web pages, man pages and blogs.
+
+// .basic_block
+About::
+* An implementation of the AsciiDoc processor in Ruby.
+* Fast text processor and publishing toolchain.
+
+Authors::
+Asciidoctor is lead by Dan Allen and Sarah White and has received contributions
+from many other individuals in Asciidoctor’s awesome community.
++
+AsciiDoc was started by Stuart Rackham.
+
+// .basic_missing_description
+Definition without a description::
+
+// .basic_with_title
+.Asciidoctor
+License:: MIT
+
+// .basic_with_id_and_role
+[#licenses.open]
+License:: MIT
+
+// .qanda
+[qanda]
+What is Asciidoctor?::
+  An implementation of the AsciiDoc processor in Ruby.
+What is the answer to the Ultimate Question?:: 42
+
+// .qanda_block
+[qanda]
+What is Asciidoctor?::
+* An implementation of the AsciiDoc processor in Ruby.
+* Fast text processor and publishing toolchain.
+
+Who is behind Asciidoctor?::
+Asciidoctor is lead by Dan Allen and Sarah White and has received contributions
+from many other individuals in Asciidoctor’s awesome community.
++
+AsciiDoc was started by Stuart Rackham.
+
+// .qanda_missing_answer
+[qanda]
+Who knows the answer?::
+
+// .qanda_with_title
+[qanda]
+.The most important questions
+What is the answer to the Ultimate Question?:: 42
+
+// .qanda_with_id_and_role
+[qanda, id=faq, role=galaxy]
+What is the answer to the Ultimate Question?:: 42
+
+// .horizontal
+[horizontal]
+Hard drive:: Permanent storage for operating system and/or user files.
+RAM:: Temporarily stores information the CPU uses during operation.
+
+// .horizontal_with_dimensions
+[horizontal, labelwidth="20", itemwidth="50%"]
+Hard drive:: Permanent storage for operating system and/or user files.
+RAM:: Temporarily stores information the CPU uses during operation.
+
+// .horizontal_with_title
+[horizontal]
+.Computer terminology for noobs
+Hard drive:: Permanent storage for operating system and/or user files.
+RAM:: Temporarily stores information the CPU uses during operation.
+
+// .horizontal_with_id_and_role
+[horizontal, id=computer, role=terms]
+Hard drive:: Permanent storage for operating system and/or user files.
+RAM:: Temporarily stores information the CPU uses during operation.
+
+// .mixed
+Operating Systems::
+  Linux:::
+    . Fedora
+      * Desktop
+    . Ubuntu
+      * Desktop
+      * Server
+  BSD:::
+    . FreeBSD
+    . NetBSD
+
+Cloud Providers::
+  PaaS:::
+    . OpenShift
+    . CloudBees
+  IaaS:::
+    . Amazon EC2
+    . Rackspace

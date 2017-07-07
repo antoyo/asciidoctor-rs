@@ -1,0 +1,24 @@
+// .basic
+video::video_file.mp4[]
+
+// .with_poster
+video::video_file.mp4[poster="sunset.jpg"]
+
+// .with_dimensions
+video::video_file.mp4[width=640, height=480]
+
+// .with_start
+video::video_file.mp4[start=10]
+
+// .with_end
+video::video_file.mp4[end=60]
+
+// .with_options
+video::video_file.mp4[options="autoplay, loop, nocontrols"]
+
+// .with_title
+.Must watch!
+video::video_file.mp4[]
+
+// .with_id_and_role
+video::video_file.mp4[id="lindsey", role="watch"]

@@ -1,0 +1,11 @@
+[package]
+authors = ["Antoni Boucher <antoni.boucher@adgear.com>"]
+name = "asciidoctor"
+version = "0.1.0"
+
+[dependencies]
+error-chain = "^0.10.0"
+
+[dev-dependencies]
+html-diff = "^0.0.2"
+pretty_assertions = "^0.2.1"

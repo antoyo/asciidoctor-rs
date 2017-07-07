@@ -1,0 +1,13 @@
+// .basic
+audio::ocean_waves.mp3[]
+
+// .with_all_options
+audio::ocean_waves.mp3[options="autoplay, nocontrols, loop"]
+
+// .with_title
+.Waves!
+audio::ocean_waves.mp3[]
+
+// .with_id_and_role
+[#ocean.wave]
+audio::ocean_waves.mp3[]

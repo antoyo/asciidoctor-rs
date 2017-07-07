@@ -1,0 +1,28 @@
+// .asciimath
+:stem: asciimath
+[stem]
+++++
+sqrt(4) = 2
+++++
+
+// .latexmath
+:stem: latexmath
+[stem]
+++++
+C = \alpha + \beta Y^{\gamma} + \epsilon
+++++
+
+// .with_title
+:stem:
+[stem]
+.Equation
+++++
+sqrt(4) = 2
+++++
+
+// .with_id_and_role
+:stem:
+[stem, id="sqrt", role="right"]
+++++
+sqrt(4) = 2
+++++

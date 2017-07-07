@@ -1,0 +1,50 @@
+// .basic
+// The block_toc node is used only with toc::[] macro!
+// Actual TOC content is rendered in block_outline, this template usually
+// renders just a "border".
+= Document Title
+:toc:
+:toc-placement!:
+
+== Introduction
+
+toc::[]
+
+== The Ravages of Writing
+
+=== A Recipe for Potion
+
+// .with_title
+= Document Title
+:toc:
+:toc-placement!:
+
+== Introduction
+
+toc::[title="Table of Adventures"]
+
+== The Ravages of Writing
+
+// .with_levels
+= Document Title
+:toc:
+:toc-placement!:
+
+== Introduction
+
+toc::[levels=1]
+
+== The Ravages of Writing
+
+=== A Recipe for Potion
+
+// .with_id_and_role
+= Document Title
+:toc:
+:toc-placement!:
+
+== Introduction
+
+toc::[id="mytoc", role="taco"]
+
+== The Ravages of Writing
