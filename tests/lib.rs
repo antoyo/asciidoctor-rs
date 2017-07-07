@@ -35,25 +35,26 @@ use asciidoctor::html::{self, Generator};
 fn test_parse_gen() {
     generate_html_and_cmp("block_page_break");
     generate_html_and_cmp("block_thematic_break");
+    //generate_html_and_cmp("inline_quoted");
+    //generate_html_and_cmp("block_admonition");
 }
 
 fn generate_html_and_cmp(name: &str) {
     let file = read_file(&format!("input/{}.adoc", name));
     let lexer = Lexer::new(file.as_bytes());
     let mut parser = Parser::new(lexer);
-    let mut html = vec![];
+    let mut html = String::new();
     {
-        let mut generator = Generator::new(&mut html);
+        let mut generator = Generator {};
         loop {
-            let node = parser.nodes();
+            let node = parser.node();
             match node {
-                Ok(node) => html::gen(&mut generator, &node).unwrap(),
+                Ok(node) => html.push_str(&html::gen(&mut generator, &node)),
                 Err(Error(Eof, _)) => break,
                 Err(err) => panic!("cannot parse asciidoctor: {}", err),
             }
         }
     }
-    let html = String::from_utf8(html).unwrap();
 
     let result_file = read_file(&format!("output/{}.html", name));
     let differences = get_differences(&result_file, &html);
@@ -63,6 +64,7 @@ fn generate_html_and_cmp(name: &str) {
             diffs += &diff.to_string();
             diffs += "\n";
         }
+        println!("{}", diffs);
         assert_eq!(result_file, html);
     }
 }

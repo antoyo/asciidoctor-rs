@@ -23,6 +23,29 @@
 #[derive(Debug)]
 pub enum Node {
     HorizontalRule,
+    Mark(Text),
     PageBreak,
-    Paragraph(String),
+    Paragraph(Text),
+}
+
+/// A text contains words, links, bold text, …
+#[derive(Debug)]
+pub struct Text {
+    pub items: Vec<Item>,
+}
+
+impl Text {
+    pub fn new(items: Vec<Item>) -> Self {
+        Text {
+            items,
+        }
+    }
+}
+
+/// A text item, like a word, link, bold text, …
+#[derive(Debug)]
+pub enum Item {
+    //Bold(Box<Text>),
+    Space,
+    Word(String),
 }

@@ -27,7 +27,7 @@ use std::iter::Peekable;
 use error::ErrorKind::Eof;
 use error::Result;
 use lexer::Lexer;
-use node::Node;
+use node::{Item, Node, Text};
 use node::Node::*;
 use self::NodeType::*;
 use token::Token::*;
@@ -37,6 +37,7 @@ use token::Token::*;
 enum NodeType {
     HorRule,
     LineFeed,
+    NumSign,
     PageBrk,
     TextWord,
     TokErr,
@@ -64,15 +65,22 @@ impl<R: BufRead> Parser<R> {
         Ok(HorizontalRule)
     }
 
+    /// Parse a mark.
+    fn mark(&mut self) -> Result<Node> {
+        // TODO
+        Ok(Mark(Text::new(vec![])))
+    }
+
     /// An iterator over the nodes of the document.
-    pub fn nodes(&mut self) -> Result<Node> {
+    pub fn node(&mut self) -> Result<Node> {
         let ty = self.node_type()?;
         match ty {
             HorRule => self.horizontal_rule(),
+            NumSign => self.mark(),
             PageBrk => self.page_break(),
             LineFeed | WhiteSpace => {
                 self.tokens.next();
-                self.nodes()
+                self.node()
             },
             TextWord => self.paragraph(),
             TokErr => {
@@ -92,6 +100,7 @@ impl<R: BufRead> Parser<R> {
                 Some(&Ok(ref token)) =>
                     match *token {
                         NewLine => LineFeed,
+                        NumberSign => NumSign,
                         Space => WhiteSpace,
                         TripleApos => HorRule,
                         TripleLt => PageBrk,
@@ -111,7 +120,7 @@ impl<R: BufRead> Parser<R> {
 
     /// Parse a paragraph.
     fn paragraph(&mut self) -> Result<Node> {
-        let mut string = String::new();
+        let mut items = vec![];
         let mut previous_token_is_nl = false;
         // TODO: use a macro to eat.
         loop {
@@ -131,15 +140,15 @@ impl<R: BufRead> Parser<R> {
                 },
                 Some(Ok(Space)) => {
                     previous_token_is_nl = false;
-                    string.push(' ');
+                    items.push(Item::Space);
                 },
                 Some(Ok(Word(bytes))) => {
                     previous_token_is_nl = false;
-                    string.push_str(&String::from_utf8(bytes)?);
+                    items.push(Item::Word(String::from_utf8(bytes)?));
                 },
                 _ => bail!("Should have got text token"),
             }
         }
-        Ok(Paragraph(string))
+        Ok(Paragraph(Text::new(items)))
     }
 }

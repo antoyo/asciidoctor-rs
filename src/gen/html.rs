@@ -21,11 +21,10 @@
 
 //! Generate HTML from the asciidoctor nodes.
 
-use std::io::Write;
-
-use error::Result;
 use node::Node;
 use node::Node::*;
+use node::Text;
+use node::Item;
 
 macro_rules! attr {
     ($( $name:ident = $value:expr ),*) => {{
@@ -41,59 +40,64 @@ macro_rules! attr {
 }
 
 /// Write the resulting HTML code for the specified `node` in the `writer`.
-pub fn gen<G: HtmlGen<W>, W: Write>(gen: &mut G, node: &Node) -> Result<()> {
+pub fn gen<G: HtmlGen>(gen: &mut G, node: &Node) -> String {
     gen.node(node)
 }
 
-pub struct Generator<'a, W: Write + 'a> {
-    writer: &'a mut W,
+pub struct Generator {
 }
 
-impl<'a, W: Write + 'a> Generator<'a, W> {
-    /// Create a new HTML generator.
-    pub fn new(writer: &'a mut W) -> Self {
-        Generator {
-            writer,
-        }
-    }
-}
-
-pub trait HtmlGen<W: Write> {
-    fn node(&mut self, node: &Node) -> Result<()> {
+pub trait HtmlGen {
+    fn node(&mut self, node: &Node) -> String {
         match *node {
             HorizontalRule => self.horizontal_rule(),
+            Mark(ref text) => self.mark(&text),
             PageBreak => self.page_break(),
-            Paragraph(ref text) => self.paragraph(text),
+            Paragraph(ref text) => self.paragraph(&text),
         }
     }
 
-    fn horizontal_rule(&mut self) -> Result<()> {
-        self.write(hr())
+    fn horizontal_rule(&mut self) -> String {
+        hr()
     }
 
-    fn page_break(&mut self) -> Result<()> {
-        self.write(div_a(
+    fn item(&mut self, item: &Item) -> String {
+        match *item {
+            Item::Space => " ".to_string(),
+            Item::Word(ref text) => text.clone(),
+        }
+    }
+
+    fn mark(&mut self, text: &Text) -> String {
+        let text = self.text(text);
+        mark(text)
+    }
+
+    fn page_break(&mut self) -> String {
+        div_a(
             attr! { style = "page-break-after: always;" },
             empty()
-        ))
+        )
     }
 
-    fn paragraph(&mut self, text: &str) -> Result<()> {
-        self.write(div_a(
+    fn paragraph(&mut self, text: &Text) -> String {
+        let text = self.text(text);
+        div_a(
             attr! { class = "paragraph" },
-            p(text_node(text)),
-        ))
+            p(text),
+        )
     }
 
-    fn write(&mut self, string: String) -> Result<()>;
-}
-
-impl<'a, W: Write + 'a> HtmlGen<W> for Generator<'a, W> {
-    fn write(&mut self, string: String) -> Result<()> {
-        write!(self.writer, "{}", string)?;
-        Ok(())
+    fn text(&mut self, text: &Text) -> String {
+        let mut string = String::new();
+        for item in &text.items {
+            string.push_str(&self.item(item));
+        }
+        string
     }
 }
+
+impl HtmlGen for Generator {}
 
 fn div_a(attributes: String, children: String) -> String {
     tag_a("div", &attributes, &children)
@@ -105,6 +109,10 @@ fn empty() -> String {
 
 fn hr() -> String {
     tag("hr", "")
+}
+
+fn mark(children: String) -> String {
+    tag("mark", &children)
 }
 
 fn p(children: String) -> String {
@@ -121,8 +129,4 @@ fn tag(tag: &str, children: &str) -> String {
 
 fn tag_a(tag: &str, attributes: &str, children: &str) -> String {
     format!("<{} {}>{}</{}>", tag, attributes, children, tag)
-}
-
-fn text_node(text: &str) -> String {
-    text.to_string()
 }

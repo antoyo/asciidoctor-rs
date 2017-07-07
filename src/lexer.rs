@@ -21,6 +21,7 @@
 
 //! Return the tokens from an asciidoctor text.
 
+use std::char;
 use std::io::Read;
 
 use error::ErrorKind::{Eof, UnexpectedChar};
@@ -136,6 +137,12 @@ impl<R: Read> Lexer<R> {
         Ok(NewLine)
     }
 
+    /// Parse a number sign.
+    fn number_sign(&mut self) -> Result<Token> {
+        self.eat(b'#')?;
+        Ok(NumberSign)
+    }
+
     /// Get the current position in the file.
     fn pos(&self) -> Pos {
         Pos::new(self.line, self.column)
@@ -175,6 +182,7 @@ impl<R: Read> Lexer<R> {
                 self.advance(actual);
                 self.token()
             },
+            b'#' => self.number_sign(),
             b' ' => self.space(),
             _ => self.word(),
         }
@@ -200,6 +208,11 @@ impl<R: Read> Lexer<R> {
     fn word(&mut self) -> Result<Token> {
         let start_index = self.buffer_index;
         self.advance_while(|c| !b" *_`#[^~:\n\r\t".contains(&c))?;
+        if self.buffer_index == start_index {
+            bail!("bug in the parser, next character `{}` is not part of a word token",
+                  char::from_u32(self.current_char()? as u32)
+                      .ok_or("byte is not a character")?)
+        }
         Ok(Word(self.buffer[start_index..self.buffer_index].to_vec()))
     }
 }

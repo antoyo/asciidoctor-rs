@@ -25,6 +25,7 @@
 #[derive(Debug)]
 pub enum Token {
     NewLine,
+    NumberSign,
     Space,
     TripleApos,
     TripleLt,
