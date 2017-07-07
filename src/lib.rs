@@ -32,7 +32,7 @@ mod parser;
 mod position;
 mod token;
 
-use std::io::{Read, Write};
+//use std::io::{Read, Write};
 
 pub use error::{Error, ErrorKind, Result, ResultExt};
 pub use gen::html;
@@ -41,6 +41,7 @@ pub use node::Node;
 pub use parser::Parser;
 pub use token::Token;
 
+/*
 /// Convert the data read from the `reader` and write the output into the `writer`.
 pub fn to_html<R: Read, W: Write>(reader: R, writer: W) {
-}
+}*/

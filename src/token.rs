@@ -22,12 +22,13 @@
 //! Tokens from an asciidoctor document.
 
 /// Different types of token.
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Token {
     NewLine,
     NumberSign,
     Space,
     TripleApos,
     TripleLt,
+    Underscore,
     Word(Vec<u8>),
 }

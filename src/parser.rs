@@ -25,23 +25,24 @@ use std::io::BufRead;
 use std::iter::Peekable;
 
 use error::ErrorKind::Eof;
-use error::Result;
+use error::{Error, Result};
 use lexer::Lexer;
 use node::{Item, Node, Text};
 use node::Node::*;
-use self::NodeType::*;
+use token::Token;
 use token::Token::*;
 
 /// Type of node to parse.
-#[derive(Debug)]
-enum NodeType {
-    HorRule,
-    LineFeed,
-    NumSign,
-    PageBrk,
-    TextWord,
+#[derive(Copy, Clone, Debug, PartialEq)]
+enum Type {
+    HorizontalRule,
+    NewLine,
+    NumberSign,
+    PageBreak,
+    Space,
     TokErr,
-    WhiteSpace,
+    Underscore,
+    Word,
 }
 
 /// Asciidoctor parser.
@@ -59,31 +60,55 @@ impl<R: BufRead> Parser<R> {
         }
     }
 
+    /// Eat the expected token or return an error if a different token is found.
+    fn eat(&mut self, expected: Token) -> Result<()> {
+        if let Some(token) = self.tokens.next() {
+            let token = token?;
+            if token != expected {
+                bail!("expected to eat token {:?}, but found {:?}", expected, token);
+            }
+        }
+        else {
+            bail!("expected to eat token {:?}, but found none", expected);
+        }
+        Ok(())
+    }
+
     /// Parse an horizontal rule.
     fn horizontal_rule(&mut self) -> Result<Node> {
-        self.tokens.next(); // TODO: use a macro to eat.
+        self.eat(TripleApos)?;
         Ok(HorizontalRule)
     }
 
+    /// Parse an italic text.
+    fn italic(&mut self) -> Result<Item> {
+        // TODO: refactor to be able to reuse this part and others like mark, bold…
+        self.eat(Underscore)?;
+        let text = self.text_while(|token| token != Type::Underscore)?;
+        self.eat(Underscore)?;
+        Ok(Item::Italic(text))
+    }
+
     /// Parse a mark.
-    fn mark(&mut self) -> Result<Node> {
-        // TODO
-        Ok(Mark(Text::new(vec![])))
+    fn mark(&mut self) -> Result<Item> {
+        self.eat(NumberSign)?;
+        let text = self.text_while(|token| token != Type::NumberSign)?;
+        self.eat(NumberSign)?;
+        Ok(Item::Mark(text))
     }
 
     /// An iterator over the nodes of the document.
     pub fn node(&mut self) -> Result<Node> {
         let ty = self.node_type()?;
         match ty {
-            HorRule => self.horizontal_rule(),
-            NumSign => self.mark(),
-            PageBrk => self.page_break(),
-            LineFeed | WhiteSpace => {
+            Type::HorizontalRule => self.horizontal_rule(),
+            Type::PageBreak => self.page_break(),
+            Type::NewLine | Type::Space => {
                 self.tokens.next();
                 self.node()
             },
-            TextWord => self.paragraph(),
-            TokErr => {
+            Type::NumberSign | Type::Underscore | Type::Word => self.paragraph(),
+            Type::TokErr => {
                 if let Some(Err(err)) = self.tokens.next() {
                     bail!(err);
                 }
@@ -94,19 +119,23 @@ impl<R: BufRead> Parser<R> {
         }
     }
 
-    fn node_type(&mut self) -> Result<NodeType> {
+    /// Get the node type.
+    // TODO: find a way to satisfy the borrow checker and remove this node type.
+    fn node_type(&mut self) -> Result<Type> {
         let ty =
             match self.tokens.peek() {
                 Some(&Ok(ref token)) =>
                     match *token {
-                        NewLine => LineFeed,
-                        NumberSign => NumSign,
-                        Space => WhiteSpace,
-                        TripleApos => HorRule,
-                        TripleLt => PageBrk,
-                        Word(_) => TextWord,
+                        NewLine => Type::NewLine,
+                        NumberSign => Type::NumberSign,
+                        Space => Type::Space,
+                        TripleApos => Type::HorizontalRule,
+                        TripleLt => Type::PageBreak,
+                        Underscore => Type::Underscore,
+                        Word(_) => Type::Word,
                     },
-                Some(&Err(_)) => TokErr,
+                Some(&Err(Error(Eof, _))) => bail!(Eof),
+                Some(&Err(_)) => Type::TokErr,
                 None => bail!(Eof),
             };
         Ok(ty)
@@ -114,41 +143,62 @@ impl<R: BufRead> Parser<R> {
 
     /// Parse a page break
     fn page_break(&mut self) -> Result<Node> {
-        self.tokens.next(); // TODO: use a macro to eat.
+        self.eat(TripleLt)?;
         Ok(PageBreak)
     }
 
     /// Parse a paragraph.
     fn paragraph(&mut self) -> Result<Node> {
         let mut items = vec![];
-        let mut previous_token_is_nl = false;
-        // TODO: use a macro to eat.
         loop {
-            let ty = self.node_type()?;
-            match ty {
-                LineFeed | TextWord | WhiteSpace => (),
-                _ => break,
+            let mut line = self.text_while(|node_type| node_type != Type::NewLine)?;
+            // End of paragraph on an empty line.
+            if line.items.is_empty() {
+                break;
             }
-            match self.tokens.next() {
-                Some(Ok(NewLine)) => {
-                    if previous_token_is_nl {
-                        break
-                    }
-                    else {
-                        previous_token_is_nl = true;
-                    }
-                },
-                Some(Ok(Space)) => {
-                    previous_token_is_nl = false;
-                    items.push(Item::Space);
-                },
-                Some(Ok(Word(bytes))) => {
-                    previous_token_is_nl = false;
-                    items.push(Item::Word(String::from_utf8(bytes)?));
-                },
-                _ => bail!("Should have got text token"),
-            }
+            items.append(&mut line.items);
         }
         Ok(Paragraph(Text::new(items)))
+    }
+
+    /// Parse a space.
+    fn space(&mut self) -> Result<Item> {
+        self.eat(Space)?;
+        Ok(Item::Space)
+    }
+
+    /// Parse text while the predicate returns true.
+    fn text_while<F: Fn(Type) -> bool>(&mut self, predicate: F) -> Result<Text> {
+        let mut items = vec![];
+        loop {
+            let node_type = self.node_type()?;
+            if !predicate(node_type) {
+                break;
+            }
+            let item =
+                match node_type {
+                    Type::NewLine => {
+                        self.eat(NewLine)?;
+                        continue;
+                    },
+                    Type::NumberSign => self.mark()?,
+                    Type::Space => self.space()?,
+                    Type::Underscore => self.italic()?,
+                    Type::Word => self.word()?,
+                    _ => bail!("Should have got text token, but got {:?}", node_type),
+                };
+            items.push(item);
+        }
+        Ok(Text::new(items))
+    }
+
+    /// Parse a single word.
+    fn word(&mut self) -> Result<Item> {
+        if let Some(Ok(Word(bytes))) = self.tokens.next() {
+            Ok(Item::Word(String::from_utf8(bytes)?))
+        }
+        else {
+            bail!("Should have got word token");
+        }
     }
 }

@@ -1,9 +1,12 @@
+////
 // .basic
 [why]#chunky bacon#
+////
 
 // .emphasis
 _chunky bacon_
 
+////
 // .emphasis_with_role
 [why]_chunky bacon_
 
@@ -30,10 +33,12 @@ _chunky bacon_
 
 // .subscript_with_role
 [why]~sub~chunky bacon
+////
 
 // .mark
 #chunky bacon#
 
+////
 // .double
 "`chunky bacon`"
 
@@ -57,3 +62,4 @@ latexmath:[$C = \alpha + \beta Y^{\gamma} + \epsilon$]
 
 // .mixed_monospace_bold_italic
 `*_monospace bold italic phrase_*` and le``**__tt__**``ers
+////

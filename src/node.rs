@@ -23,7 +23,6 @@
 #[derive(Debug)]
 pub enum Node {
     HorizontalRule,
-    Mark(Text),
     PageBreak,
     Paragraph(Text),
 }
@@ -46,6 +45,8 @@ impl Text {
 #[derive(Debug)]
 pub enum Item {
     //Bold(Box<Text>),
+    Italic(Text),
+    Mark(Text),
     Space,
     Word(String),
 }

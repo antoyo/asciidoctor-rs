@@ -51,7 +51,6 @@ pub trait HtmlGen {
     fn node(&mut self, node: &Node) -> String {
         match *node {
             HorizontalRule => self.horizontal_rule(),
-            Mark(ref text) => self.mark(&text),
             PageBreak => self.page_break(),
             Paragraph(ref text) => self.paragraph(&text),
         }
@@ -61,12 +60,20 @@ pub trait HtmlGen {
         hr()
     }
 
+    fn italic(&mut self, text: &Text) -> String {
+        let text = self.text(text);
+        italic(text)
+    }
+
     fn item(&mut self, item: &Item) -> String {
         match *item {
+            Item::Italic(ref text) => self.italic(&text),
+            Item::Mark(ref text) => self.mark(&text),
             Item::Space => " ".to_string(),
             Item::Word(ref text) => text.clone(),
         }
     }
+
 
     fn mark(&mut self, text: &Text) -> String {
         let text = self.text(text);
@@ -111,6 +118,10 @@ fn hr() -> String {
     tag("hr", "")
 }
 
+fn italic(children: String) -> String {
+    tag("em", &children)
+}
+
 fn mark(children: String) -> String {
     tag("mark", &children)
 }
@@ -119,9 +130,9 @@ fn p(children: String) -> String {
     tag("p", &children)
 }
 
-fn p_a(attributes: String, children: String) -> String {
+/*fn p_a(attributes: String, children: String) -> String {
     tag_a("p", &attributes, &children)
-}
+}*/
 
 fn tag(tag: &str, children: &str) -> String {
     format!("<{}>{}</{}>", tag, children, tag)

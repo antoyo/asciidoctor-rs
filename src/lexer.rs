@@ -85,6 +85,12 @@ impl<R: Read> Lexer<R> {
         Ok(())
     }
 
+    /// Parse an closing square bracket.
+    fn close_square_bracket(&mut self) -> Result<Token> {
+        self.eat(b']')?;
+        Ok(Space)
+    }
+
     /// Parse (and ignore) a comment.
     fn comment(&mut self) -> Result<()> {
         self.eat(b'/')?;
@@ -92,13 +98,17 @@ impl<R: Read> Lexer<R> {
 
         // Try to parse a multiline comment.
         if self.current_char()? == b'/' {
-            self.eat(b'/');
-            self.eat(b'/');
+            self.eat(b'/')?;
+            self.eat(b'/')?;
 
             let comment_delim = b"////";
             while &self.buffer[self.buffer_index..self.buffer_index + comment_delim.len()] != comment_delim {
-                self.eat(b'\n');
                 self.advance_to_eol()?;
+                self.advance_while(|c| c == b'\n')?;
+            }
+            // Eat the //// token.
+            for _ in 0..4 {
+                self.eat(b'/')?;
             }
         }
         else {
@@ -143,6 +153,12 @@ impl<R: Read> Lexer<R> {
         Ok(NumberSign)
     }
 
+    /// Parse an opening square bracket.
+    fn open_square_bracket(&mut self) -> Result<Token> {
+        self.eat(b'[')?;
+        Ok(Space)
+    }
+
     /// Get the current position in the file.
     fn pos(&self) -> Pos {
         Pos::new(self.line, self.column)
@@ -184,6 +200,9 @@ impl<R: Read> Lexer<R> {
             },
             b'#' => self.number_sign(),
             b' ' => self.space(),
+            b'[' => self.open_square_bracket(),
+            b']' => self.close_square_bracket(),
+            b'_' => self.underscore(),
             _ => self.word(),
         }
     }
@@ -202,6 +221,12 @@ impl<R: Read> Lexer<R> {
         self.eat(b'<')?;
         self.eat(b'<')?;
         Ok(TripleLt)
+    }
+
+    /// Parse an underscore.
+    fn underscore(&mut self) -> Result<Token> {
+        self.eat(b'_')?;
+        Ok(Underscore)
     }
 
     /// Parse a word.

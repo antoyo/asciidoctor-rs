@@ -33,9 +33,9 @@ use asciidoctor::html::{self, Generator};
 
 #[test]
 fn test_parse_gen() {
-    generate_html_and_cmp("block_page_break");
-    generate_html_and_cmp("block_thematic_break");
-    //generate_html_and_cmp("inline_quoted");
+    //generate_html_and_cmp("block_page_break");
+    //generate_html_and_cmp("block_thematic_break");
+    generate_html_and_cmp("inline_quoted");
     //generate_html_and_cmp("block_admonition");
 }
 
@@ -65,7 +65,8 @@ fn generate_html_and_cmp(name: &str) {
             diffs += "\n";
         }
         println!("{}", diffs);
-        assert_eq!(result_file, html);
+        assert!(false);
+        //assert_eq!(result_file, html);
     }
 }
 
