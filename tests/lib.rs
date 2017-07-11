@@ -43,13 +43,13 @@ fn generate_html_and_cmp(name: &str) {
     let file = read_file(&format!("input/{}.adoc", name));
     let lexer = Lexer::new(file.as_bytes());
     let mut parser = Parser::new(lexer);
-    let mut html = String::new();
+    let mut buffer = Vec::new();
     {
         let mut generator = Generator {};
         loop {
             let node = parser.node();
             match node {
-                Ok(node) => html.push_str(&html::gen(&mut generator, &node)),
+                Ok(node) => html::gen(&mut generator, &node, &mut buffer).unwrap(),
                 Err(Error(Eof, _)) => break,
                 Err(err) => panic!("cannot parse asciidoctor: {}", err),
             }
@@ -57,6 +57,7 @@ fn generate_html_and_cmp(name: &str) {
     }
 
     let result_file = read_file(&format!("output/{}.html", name));
+    let html = String::from_utf8(buffer).unwrap();
     let differences = get_differences(&result_file, &html);
     if !differences.is_empty() {
         let mut diffs = "\n".to_string();
