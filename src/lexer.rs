@@ -32,12 +32,18 @@ use token::Token::*;
 
 const BUFFER_SIZE: usize = 4096;
 
+struct NextToken {
+    previous_pos: Pos,
+    token: Token,
+}
+
 pub struct Lexer<R: Read> {
     buffer: [u8; BUFFER_SIZE],
     buffer_index: usize,
     buffer_size: usize,
     column: usize,
     line: usize,
+    next_token: Option<NextToken>,
     reader: R,
 }
 
@@ -51,6 +57,7 @@ impl<R: Read> Lexer<R> {
             buffer_size: 0,
             column: 1,
             line: 1,
+            next_token: None,
             reader,
         }
     }
@@ -88,7 +95,7 @@ impl<R: Read> Lexer<R> {
     /// Parse an closing square bracket.
     fn close_square_bracket(&mut self) -> Result<Token> {
         self.eat(b']')?;
-        Ok(Space)
+        Ok(CloseSquareBracket)
     }
 
     /// Parse (and ignore) a comment.
@@ -156,12 +163,31 @@ impl<R: Read> Lexer<R> {
     /// Parse an opening square bracket.
     fn open_square_bracket(&mut self) -> Result<Token> {
         self.eat(b'[')?;
-        Ok(Space)
+        Ok(OpenSquareBracket)
+    }
+
+    /// Peek to get the next token. This token will be returned by the next call to token().
+    pub fn peek(&mut self) -> Result<&Token> {
+        if self.next_token.is_none() {
+            let previous_pos = self.pos();
+            self.next_token = Some(NextToken {
+                token: self.token()?,
+                previous_pos,
+            });
+        }
+        // The next_token attribute is assigned a Some value if it is None, so unwrap() always
+        // works.
+        Ok(&self.next_token.as_ref().unwrap().token)
     }
 
     /// Get the current position in the file.
-    fn pos(&self) -> Pos {
-        Pos::new(self.line, self.column)
+    pub fn pos(&self) -> Pos {
+        if let Some(ref token) = self.next_token {
+            token.previous_pos
+        }
+        else {
+            Pos::new(self.line, self.column)
+        }
     }
 
     /// Read from the buffer if needed.
@@ -183,7 +209,10 @@ impl<R: Read> Lexer<R> {
     }
 
     /// Get the next token from the file.
-    fn token(&mut self) -> Result<Token> {
+    pub fn token(&mut self) -> Result<Token> {
+        if let Some(token) = self.next_token.take() {
+            return Ok(token.token);
+        }
         self.read_if_needed()?;
         let actual = self.current_char()?;
         match actual {
@@ -232,20 +261,12 @@ impl<R: Read> Lexer<R> {
     /// Parse a word.
     fn word(&mut self) -> Result<Token> {
         let start_index = self.buffer_index;
-        self.advance_while(|c| !b" *_`#[^~:\n\r\t".contains(&c))?;
+        self.advance_while(|c| !b" *_`#[]^~:\n\r\t".contains(&c))?;
         if self.buffer_index == start_index {
             bail!("bug in the parser, next character `{}` is not part of a word token",
                   char::from_u32(self.current_char()? as u32)
                       .ok_or("byte is not a character")?)
         }
         Ok(Word(self.buffer[start_index..self.buffer_index].to_vec()))
-    }
-}
-
-impl<R: Read> Iterator for Lexer<R> {
-    type Item = Result<Token>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        Some(self.token())
     }
 }

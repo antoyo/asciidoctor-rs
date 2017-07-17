@@ -22,7 +22,7 @@
 //! Position information for a token or a node.
 
 /// Position as line and column.
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Pos {
     pub column: usize,
     pub line: usize,

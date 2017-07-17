@@ -21,14 +21,36 @@
 
 //! Tokens from an asciidoctor document.
 
+use self::Token::*;
+
 /// Different types of token.
 #[derive(Debug, PartialEq)]
 pub enum Token {
+    CloseSquareBracket,
     NewLine,
     NumberSign,
+    OpenSquareBracket,
     Space,
     TripleApos,
     TripleLt,
     Underscore,
     Word(Vec<u8>),
+}
+
+impl Token {
+    /// Convert the token to a user-readable string.
+    /// Useful for error reporting.
+    pub fn to_string(&self) -> String {
+        match *self {
+            CloseSquareBracket => "]".to_string(),
+            NewLine => "(newline)".to_string(),
+            NumberSign => "#".to_string(),
+            OpenSquareBracket => "[".to_string(),
+            Space => "(space)".to_string(),
+            TripleApos => "'''".to_string(),
+            TripleLt => "<<<".to_string(),
+            Underscore => "_".to_string(),
+            Word(ref word) => String::from_utf8_lossy(word).to_string(),
+        }
+    }
 }

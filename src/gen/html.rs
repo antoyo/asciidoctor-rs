@@ -24,7 +24,8 @@
 use std::io::Write;
 
 use error::Result;
-use node::Node;
+use node::{Attribute, Node};
+use node::Attribute::Role;
 use node::Node::*;
 use node::Text;
 use node::Item;
@@ -59,7 +60,7 @@ pub trait HtmlGen {
         match *node {
             HorizontalRule => self.horizontal_rule(),
             PageBreak => self.page_break(),
-            Paragraph(ref text) => self.paragraph(&text),
+            Paragraph(ref text) => self.paragraph(text),
         }
     }
 
@@ -67,15 +68,15 @@ pub trait HtmlGen {
         hr()
     }
 
-    fn italic(&mut self, text: &Text) -> Html {
+    fn italic(&mut self, text: &Text, attributes: &[Attribute]) -> Html {
         let text = self.text(text);
-        italic(text)
+        italic_a(attributes_to_string(attributes), text)
     }
 
     fn item(&mut self, item: &Item) -> Html {
         match *item {
-            Item::Italic(ref text) => self.italic(&text),
-            Item::Mark(ref text) => self.mark(&text),
+            Item::Italic(ref text, ref attributes) => self.italic(text, attributes),
+            Item::Mark(ref text) => self.mark(text),
             Item::Space => SingleTextNode(" ".to_string()),
             Item::Word(ref text) => SingleTextNode(text.clone()),
         }
@@ -116,7 +117,7 @@ impl HtmlGen for Generator {}
 /// Represent an HTML node with its children.
 pub enum Html {
     Div(String, Box<Html>),
-    Em(Box<Html>),
+    Em(String, Box<Html>),
     Empty,
     Hr,
     Mark(Box<Html>),
@@ -128,12 +129,12 @@ pub enum Html {
 impl Html {
     fn write<W: Write>(&self, writer: &mut W) -> Result<()> {
         match *self {
-            Div(ref attributes, ref children) => tag_a("div", &attributes, &children, writer),
-            Em(ref children) => tag("em", &children, writer),
+            Div(ref attributes, ref children) => tag_a("div", attributes, children, writer),
+            Em(ref attributes, ref children) => tag_a("em", attributes, children, writer),
             Empty => Ok(()),
             Hr => write_text("<hr/>", writer),
-            Mark(ref children) => tag("mark", &children, writer),
-            P(ref children) => tag("p", &children, writer),
+            Mark(ref children) => tag("mark", children, writer),
+            P(ref children) => tag("p", children, writer),
             SingleTextNode(ref text) => write_text(text, writer),
             TextNode(ref nodes) => {
                 for node in nodes {
@@ -156,8 +157,8 @@ pub fn hr() -> Html {
 }
 
 /// Create an italic element.
-pub fn italic(children: Html) -> Html {
-    Em(Box::new(children))
+pub fn italic_a(attributes: String, children: Html) -> Html {
+    Em(attributes, Box::new(children))
 }
 
 /// Create a mark element.
@@ -187,4 +188,14 @@ fn tag_a<W: Write>(name: &str, attributes: &str, children: &Html, writer: &mut W
 fn write_text<W: Write>(text: &str, writer: &mut W) -> Result<()> {
     write!(writer, "{}", text)?;
     Ok(())
+}
+
+fn attributes_to_string(attributes: &[Attribute]) -> String {
+    let mut string = String::new();
+    for attribute in attributes {
+        match *attribute {
+            Role(ref role) => string.push_str(&format!("class=\"{}\"", role)), // TODO: needs space around?
+        }
+    }
+    string
 }

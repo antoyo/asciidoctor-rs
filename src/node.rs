@@ -19,6 +19,13 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
+/// An attribute like a role or an ID.
+#[derive(Debug)]
+pub enum Attribute {
+    //Id(String),
+    Role(String),
+}
+
 /// This is a recursive node structure that represents part of a asciidoctor document.
 #[derive(Debug)]
 pub enum Node {
@@ -45,7 +52,7 @@ impl Text {
 #[derive(Debug)]
 pub enum Item {
     //Bold(Box<Text>),
-    Italic(Text),
+    Italic(Text, Vec<Attribute>),
     Mark(Text),
     Space,
     Word(String),

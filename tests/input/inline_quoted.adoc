@@ -6,10 +6,10 @@
 // .emphasis
 _chunky bacon_
 
-////
 // .emphasis_with_role
 [why]_chunky bacon_
 
+////
 // .strong
 *chunky bacon*
 

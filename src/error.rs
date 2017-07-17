@@ -37,7 +37,16 @@ error_chain! {
         } {
             description("expected a character, but found another character")
             display("{}:{}: expected {}, but found `{}` on line {}, column {}", pos.line, pos.column,
-                    expected_chars(&expected), actual, pos.line, pos.column)
+                    expected_chars(expected), actual, pos.line, pos.column)
+        }
+        UnexpectedToken {
+            actual: String,
+            expected: String,
+            pos: Pos,
+        } {
+            description("unexpected token")
+            display("{}:{}: expected {}, but found `{}` on line {}, column {}", pos.line, pos.column, expected, actual,
+                    pos.line, pos.column)
         }
     }
 

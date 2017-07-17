@@ -22,12 +22,13 @@
 //! Parse asciidoctor.
 
 use std::io::BufRead;
-use std::iter::Peekable;
+use std::mem;
 
-use error::ErrorKind::Eof;
 use error::{Error, Result};
+use error::ErrorKind::UnexpectedToken;
 use lexer::Lexer;
-use node::{Item, Node, Text};
+use node::{Attribute, Item, Node, Text};
+use node::Attribute::Role;
 use node::Node::*;
 use token::Token;
 use token::Token::*;
@@ -35,19 +36,21 @@ use token::Token::*;
 /// Type of node to parse.
 #[derive(Copy, Clone, Debug, PartialEq)]
 enum Type {
+    CloseSquareBracket,
     HorizontalRule,
     NewLine,
     NumberSign,
+    OpenSquareBracket,
     PageBreak,
     Space,
-    TokErr,
     Underscore,
     Word,
 }
 
 /// Asciidoctor parser.
 pub struct Parser<R: BufRead> {
-    tokens: Peekable<Lexer<R>>,
+    attributes: Vec<Attribute>,
+    tokens: Lexer<R>,
 }
 
 impl<R: BufRead> Parser<R> {
@@ -56,20 +59,35 @@ impl<R: BufRead> Parser<R> {
     /// asciidoctor nodes.
     pub fn new(tokens: Lexer<R>) -> Self {
         Parser {
-            tokens: tokens.peekable(),
+            attributes: vec![],
+            tokens,
         }
+    }
+
+    /// Parse an attribute.
+    fn attribute(&mut self) -> Result<Attribute> {
+        let attribute =
+            match self.tokens.token()? {
+                Word(word) => Role(String::from_utf8(word)?),
+                _ => bail!(self.unexpected_token("ident")),
+            };
+        Ok(attribute)
+    }
+
+    /// Parse attributes and the node following it.
+    fn attributes(&mut self) -> Result<Node> {
+        self.eat(OpenSquareBracket)?;
+        self.attributes = vec![self.attribute()?];
+        // TODO: other attributes.
+        self.eat(CloseSquareBracket)?;
+        self.node()
     }
 
     /// Eat the expected token or return an error if a different token is found.
     fn eat(&mut self, expected: Token) -> Result<()> {
-        if let Some(token) = self.tokens.next() {
-            let token = token?;
-            if token != expected {
-                bail!("expected to eat token {:?}, but found {:?}", expected, token);
-            }
-        }
-        else {
-            bail!("expected to eat token {:?}, but found none", expected);
+        let token = self.tokens.token()?;
+        if token != expected {
+            bail!(self.unexpected_token(&expected.to_string()));
         }
         Ok(())
     }
@@ -86,7 +104,8 @@ impl<R: BufRead> Parser<R> {
         self.eat(Underscore)?;
         let text = self.text_while(|token| token != Type::Underscore)?;
         self.eat(Underscore)?;
-        Ok(Item::Italic(text))
+        let attributes = mem::replace(&mut self.attributes, vec![]);
+        Ok(Item::Italic(text, attributes))
     }
 
     /// Parse a mark.
@@ -102,20 +121,13 @@ impl<R: BufRead> Parser<R> {
         let ty = self.node_type()?;
         match ty {
             Type::HorizontalRule => self.horizontal_rule(),
+            Type::OpenSquareBracket => self.attributes(),
             Type::PageBreak => self.page_break(),
             Type::NewLine | Type::Space => {
-                self.tokens.next();
+                self.tokens.token()?;
                 self.node()
             },
-            Type::NumberSign | Type::Underscore | Type::Word => self.paragraph(),
-            Type::TokErr => {
-                if let Some(Err(err)) = self.tokens.next() {
-                    bail!(err);
-                }
-                else {
-                    bail!("cannot reach non-error branch");
-                }
-            },
+            Type::CloseSquareBracket | Type::NumberSign | Type::Underscore | Type::Word => self.paragraph(),
         }
     }
 
@@ -123,20 +135,16 @@ impl<R: BufRead> Parser<R> {
     // TODO: find a way to satisfy the borrow checker and remove this node type.
     fn node_type(&mut self) -> Result<Type> {
         let ty =
-            match self.tokens.peek() {
-                Some(&Ok(ref token)) =>
-                    match *token {
-                        NewLine => Type::NewLine,
-                        NumberSign => Type::NumberSign,
-                        Space => Type::Space,
-                        TripleApos => Type::HorizontalRule,
-                        TripleLt => Type::PageBreak,
-                        Underscore => Type::Underscore,
-                        Word(_) => Type::Word,
-                    },
-                Some(&Err(Error(Eof, _))) => bail!(Eof),
-                Some(&Err(_)) => Type::TokErr,
-                None => bail!(Eof),
+            match *self.tokens.peek()? {
+                CloseSquareBracket => Type::CloseSquareBracket,
+                NewLine => Type::NewLine,
+                NumberSign => Type::NumberSign,
+                OpenSquareBracket => Type::OpenSquareBracket,
+                Space => Type::Space,
+                TripleApos => Type::HorizontalRule,
+                TripleLt => Type::PageBreak,
+                Underscore => Type::Underscore,
+                Word(_) => Type::Word,
             };
         Ok(ty)
     }
@@ -185,20 +193,32 @@ impl<R: BufRead> Parser<R> {
                     Type::Space => self.space()?,
                     Type::Underscore => self.italic()?,
                     Type::Word => self.word()?,
-                    _ => bail!("Should have got text token, but got {:?}", node_type),
+                    _ => bail!("Should have got text token, but got {:?}", node_type), // TODO: better error.
                 };
             items.push(item);
         }
         Ok(Text::new(items))
     }
 
+    /// Return an UnexpectedToken error.
+    fn unexpected_token(&mut self, expected: &str) -> Error {
+        let actual = self.tokens.peek()
+            .map(|token| token.to_string())
+            .unwrap_or_else(|_| "(unknown token)".to_string());
+        UnexpectedToken {
+            actual,
+            expected: expected.to_string(),
+            pos: self.tokens.pos(),
+        }.into()
+    }
+
     /// Parse a single word.
     fn word(&mut self) -> Result<Item> {
-        if let Some(Ok(Word(bytes))) = self.tokens.next() {
+        if let Ok(Word(bytes)) = self.tokens.token() {
             Ok(Item::Word(String::from_utf8(bytes)?))
         }
         else {
-            bail!("Should have got word token");
+            bail!("Should have got word token"); // TODO: better error.
         }
     }
 }
