@@ -19,13 +19,13 @@ _chunky bacon_
 // .monospaced_with_role
 [why]`hello world!`
 
-////
 // .superscript
 ^super^chunky bacon
 
 // .superscript_with_role
 [why]^super^chunky bacon
 
+////
 // .subscript
 ~sub~chunky bacon
 

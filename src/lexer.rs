@@ -30,6 +30,15 @@ use position::Pos;
 use token::Token;
 use token::Token::*;
 
+macro_rules! lex {
+    ($func_name:ident, $char:expr, $token:ident) => {
+        fn $func_name(&mut self) -> Result<Token> {
+            self.eat($char)?;
+            Ok($token)
+        }
+    };
+}
+
 const BUFFER_SIZE: usize = 4096;
 
 struct NextToken {
@@ -92,17 +101,15 @@ impl<R: Read> Lexer<R> {
         Ok(())
     }
 
-    /// Parse a backquote.
-    fn backquote(&mut self) -> Result<Token> {
-        self.eat(b'`')?;
-        Ok(Backquote)
-    }
-
-    /// Parse an closing square bracket.
-    fn close_square_bracket(&mut self) -> Result<Token> {
-        self.eat(b']')?;
-        Ok(CloseSquareBracket)
-    }
+    lex!(backquote, b'`', Backquote);
+    lex!(caret, b'^', Caret);
+    lex!(close_square_bracket, b']', CloseSquareBracket);
+    lex!(newline, b'\n', NewLine);
+    lex!(number_sign, b'#', NumberSign);
+    lex!(open_square_bracket, b'[', OpenSquareBracket);
+    lex!(space, b' ', Space);
+    lex!(star, b'*', Star);
+    lex!(underscore, b'_', Underscore);
 
     /// Parse (and ignore) a comment.
     fn comment(&mut self) -> Result<()> {
@@ -154,24 +161,6 @@ impl<R: Read> Lexer<R> {
         }
     }
 
-    /// Parse a new line.
-    fn newline(&mut self) -> Result<Token> {
-        self.eat(b'\n')?;
-        Ok(NewLine)
-    }
-
-    /// Parse a number sign.
-    fn number_sign(&mut self) -> Result<Token> {
-        self.eat(b'#')?;
-        Ok(NumberSign)
-    }
-
-    /// Parse an opening square bracket.
-    fn open_square_bracket(&mut self) -> Result<Token> {
-        self.eat(b'[')?;
-        Ok(OpenSquareBracket)
-    }
-
     /// Peek to get the next token. This token will be returned by the next call to token().
     pub fn peek(&mut self) -> Result<&Token> {
         if self.next_token.is_none() {
@@ -208,18 +197,6 @@ impl<R: Read> Lexer<R> {
         Ok(())
     }
 
-    /// Parse a space.
-    fn space(&mut self) -> Result<Token> {
-        self.eat(b' ')?;
-        Ok(Space)
-    }
-
-    /// Parse a star.
-    fn star(&mut self) -> Result<Token> {
-        self.eat(b'*')?;
-        Ok(Star)
-    }
-
     /// Get the next token from the file.
     pub fn token(&mut self) -> Result<Token> {
         if let Some(token) = self.next_token.take() {
@@ -246,6 +223,7 @@ impl<R: Read> Lexer<R> {
             b'_' => self.underscore(),
             b'*' => self.star(),
             b'`' => self.backquote(),
+            b'^' => self.caret(),
             _ => self.word(),
         }
     }
@@ -264,12 +242,6 @@ impl<R: Read> Lexer<R> {
         self.eat(b'<')?;
         self.eat(b'<')?;
         Ok(TripleLt)
-    }
-
-    /// Parse an underscore.
-    fn underscore(&mut self) -> Result<Token> {
-        self.eat(b'_')?;
-        Ok(Underscore)
     }
 
     /// Parse a word.

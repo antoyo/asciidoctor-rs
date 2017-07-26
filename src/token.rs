@@ -27,6 +27,7 @@ use self::Token::*;
 #[derive(Debug, PartialEq)]
 pub enum Token {
     Backquote,
+    Caret,
     CloseSquareBracket,
     NewLine,
     NumberSign,
@@ -45,6 +46,7 @@ impl Token {
     pub fn to_string(&self) -> String {
         match *self {
             Backquote => "`".to_string(),
+            Caret => "^".to_string(),
             CloseSquareBracket => "]".to_string(),
             NewLine => "(newline)".to_string(),
             NumberSign => "#".to_string(),

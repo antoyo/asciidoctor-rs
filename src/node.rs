@@ -19,6 +19,8 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
+use self::Tag::*;
+
 /// An attribute like a role or an ID.
 #[derive(Debug)]
 pub enum Attribute {
@@ -63,4 +65,17 @@ pub enum Tag {
     Bold,
     InlineCode,
     Italic,
+    SuperScript,
+}
+
+impl Tag {
+    /// Convert the asciidoctor tag to the HTML tag string.
+    pub fn to_string(&self) -> &str {
+        match *self {
+            Bold => "strong",
+            InlineCode => "code",
+            Italic => "em",
+            SuperScript => "sup",
+        }
+    }
 }

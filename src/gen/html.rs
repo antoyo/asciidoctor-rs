@@ -63,7 +63,7 @@ pub trait HtmlGen {
         match *item {
             Item::Mark(ref text, ref attributes) => self.mark(text, attributes),
             Item::Space => SingleTextNode(" ".to_string()),
-            Item::Tag(ref tag, ref text, ref attributes) => self.tag(tag, text, attributes),
+            Item::Tag(tag, ref text, ref attributes) => self.tag(tag, text, attributes),
             Item::Word(ref text) => SingleTextNode(text.clone()),
         }
     }
@@ -100,10 +100,9 @@ pub trait HtmlGen {
         )
     }
 
-    fn tag(&mut self, tag: &Tag, text: &Text, attributes: &[Attribute]) -> Html {
+    fn tag(&mut self, tag: Tag, text: &Text, attributes: &[Attribute]) -> Html {
         let text = self.text(text);
-        let tag_constructor = tag.to_constructor();
-        tag_constructor(attributes_to_string(attributes), Box::new(text))
+        Tag(tag, attributes_to_string(attributes), Box::new(text))
     }
 
     fn text(&mut self, text: &Text) -> Html {
@@ -119,32 +118,28 @@ impl HtmlGen for Generator {}
 
 /// Represent an HTML node with its children.
 pub enum Html {
-    Code(String, Box<Html>),
     Div(String, Box<Html>),
-    Em(String, Box<Html>),
     Empty,
     Hr,
     Mark(Box<Html>),
     P(Box<Html>),
     SingleTextNode(String),
     Span(String, Box<Html>),
-    Strong(String, Box<Html>),
+    Tag(Tag, String, Box<Html>),
     TextNode(Vec<Html>),
 }
 
 impl Html {
     fn write<W: Write>(&self, writer: &mut W) -> Result<()> {
         match *self {
-            Code(ref attributes, ref children) => tag_a("code", attributes, children, writer),
             Div(ref attributes, ref children) => tag_a("div", attributes, children, writer),
-            Em(ref attributes, ref children) => tag_a("em", attributes, children, writer),
             Empty => Ok(()),
             Hr => write_text("<hr/>", writer),
             Mark(ref children) => tag("mark", children, writer),
             P(ref children) => tag("p", children, writer),
             SingleTextNode(ref text) => write_text(text, writer),
             Span(ref attributes, ref children) => tag_a("span", attributes, children, writer),
-            Strong(ref attributes, ref children) => tag_a("strong", attributes, children, writer),
+            Tag(ref tag, ref attributes, ref children) => tag_a(tag.to_string(), attributes, children, writer),
             TextNode(ref nodes) => {
                 for node in nodes {
                     node.write(writer)?;
@@ -207,14 +202,4 @@ fn tag_a<W: Write>(name: &str, attributes: &str, children: &Html, writer: &mut W
 fn write_text<W: Write>(text: &str, writer: &mut W) -> Result<()> {
     write!(writer, "{}", text)?;
     Ok(())
-}
-
-impl Tag {
-    fn to_constructor(&self) -> fn(String, Box<Html>) -> Html {
-        match *self {
-            Tag::Bold => Strong,
-            Tag::InlineCode => Code,
-            Tag::Italic => Em,
-        }
-    }
 }

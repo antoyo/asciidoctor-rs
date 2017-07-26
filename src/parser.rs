@@ -29,7 +29,7 @@ use lexer::Lexer;
 use node::{Attribute, Item, Node, Text};
 use node::Attribute::Role;
 use node::Node::*;
-use node::Tag::{Bold, InlineCode, Italic};
+use node::Tag::{Bold, InlineCode, Italic, SuperScript};
 use token::Token;
 use token::Token::*;
 
@@ -55,6 +55,7 @@ macro_rules! text_between {
 #[derive(Copy, Clone, Debug, PartialEq)]
 enum Type {
     Backquote,
+    Caret,
     CloseSquareBracket,
     HorizontalRule,
     NewLine,
@@ -122,6 +123,7 @@ impl<R: BufRead> Parser<R> {
     parse_text_between!(bold, Star, Bold);
     parse_text_between!(inline_code, Backquote, InlineCode);
     parse_text_between!(italic, Underscore, Italic);
+    parse_text_between!(superscript, Caret, SuperScript);
 
     /// Parse a mark.
     fn mark(&mut self, attributes: Vec<Attribute>) -> Result<Item> {
@@ -139,8 +141,8 @@ impl<R: BufRead> Parser<R> {
                 self.tokens.token()?;
                 self.node()
             },
-            Type::Backquote | Type::CloseSquareBracket | Type::NumberSign | Type::OpenSquareBracket | Type::Star |
-                Type::Underscore | Type::Word =>
+            Type::Backquote | Type::Caret | Type::CloseSquareBracket | Type::NumberSign | Type::OpenSquareBracket |
+                Type::Star | Type::Underscore | Type::Word =>
                 self.paragraph(),
         }
     }
@@ -151,6 +153,7 @@ impl<R: BufRead> Parser<R> {
         let ty =
             match *self.tokens.peek()? {
                 Backquote => Type::Backquote,
+                Caret => Type::Caret,
                 CloseSquareBracket => Type::CloseSquareBracket,
                 NewLine => Type::NewLine,
                 NumberSign => Type::NumberSign,
@@ -197,6 +200,7 @@ impl<R: BufRead> Parser<R> {
         let item =
             match node_type {
                 Type::Backquote => self.inline_code(attributes)?,
+                Type::Caret => self.superscript(attributes)?,
                 Type::NumberSign => self.mark(attributes)?,
                 Type::OpenSquareBracket => {
                     if !attributes.is_empty() {
