@@ -27,8 +27,7 @@ use error::Result;
 use node::{Attribute, Node};
 use node::Attribute::Role;
 use node::Node::*;
-use node::Text;
-use node::Item;
+use node::{Item, Tag, Text};
 use self::Html::*;
 
 macro_rules! attr {
@@ -56,26 +55,15 @@ pub struct Generator {
 
 /// Genarate an HTML node from a asciidoctor node.
 pub trait HtmlGen {
-    fn bold(&mut self, text: &Text, attributes: &[Attribute]) -> Html {
-        let text = self.text(text);
-        bold_a(attributes_to_string(attributes), text)
-    }
-
     fn horizontal_rule(&mut self) -> Html {
         hr()
     }
 
-    fn italic(&mut self, text: &Text, attributes: &[Attribute]) -> Html {
-        let text = self.text(text);
-        italic_a(attributes_to_string(attributes), text)
-    }
-
     fn item(&mut self, item: &Item) -> Html {
         match *item {
-            Item::Bold(ref text, ref attributes) => self.bold(text, attributes),
-            Item::Italic(ref text, ref attributes) => self.italic(text, attributes),
             Item::Mark(ref text, ref attributes) => self.mark(text, attributes),
             Item::Space => SingleTextNode(" ".to_string()),
+            Item::Tag(ref tag, ref text, ref attributes) => self.tag(tag, text, attributes),
             Item::Word(ref text) => SingleTextNode(text.clone()),
         }
     }
@@ -112,6 +100,12 @@ pub trait HtmlGen {
         )
     }
 
+    fn tag(&mut self, tag: &Tag, text: &Text, attributes: &[Attribute]) -> Html {
+        let text = self.text(text);
+        let tag_constructor = tag.to_constructor();
+        tag_constructor(attributes_to_string(attributes), Box::new(text))
+    }
+
     fn text(&mut self, text: &Text) -> Html {
         let mut texts = vec![];
         for item in &text.items {
@@ -125,6 +119,7 @@ impl HtmlGen for Generator {}
 
 /// Represent an HTML node with its children.
 pub enum Html {
+    Code(String, Box<Html>),
     Div(String, Box<Html>),
     Em(String, Box<Html>),
     Empty,
@@ -140,6 +135,7 @@ pub enum Html {
 impl Html {
     fn write<W: Write>(&self, writer: &mut W) -> Result<()> {
         match *self {
+            Code(ref attributes, ref children) => tag_a("code", attributes, children, writer),
             Div(ref attributes, ref children) => tag_a("div", attributes, children, writer),
             Em(ref attributes, ref children) => tag_a("em", attributes, children, writer),
             Empty => Ok(()),
@@ -159,9 +155,14 @@ impl Html {
     }
 }
 
-/// Create a bold element.
-pub fn bold_a(attributes: String, children: Html) -> Html {
-    Strong(attributes, Box::new(children))
+fn attributes_to_string(attributes: &[Attribute]) -> String {
+    let mut string = String::new();
+    for attribute in attributes {
+        match *attribute {
+            Role(ref role) => string.push_str(&format!("class=\"{}\"", role)), // TODO: needs space around?
+        }
+    }
+    string
 }
 
 /// Create a div element with attributes.
@@ -172,11 +173,6 @@ pub fn div_a(attributes: String, children: Html) -> Html {
 /// Create a hr element.
 pub fn hr() -> Html {
     Hr
-}
-
-/// Create an italic element.
-pub fn italic_a(attributes: String, children: Html) -> Html {
-    Em(attributes, Box::new(children))
 }
 
 /// Create a mark element.
@@ -213,12 +209,12 @@ fn write_text<W: Write>(text: &str, writer: &mut W) -> Result<()> {
     Ok(())
 }
 
-fn attributes_to_string(attributes: &[Attribute]) -> String {
-    let mut string = String::new();
-    for attribute in attributes {
-        match *attribute {
-            Role(ref role) => string.push_str(&format!("class=\"{}\"", role)), // TODO: needs space around?
+impl Tag {
+    fn to_constructor(&self) -> fn(String, Box<Html>) -> Html {
+        match *self {
+            Tag::Bold => Strong,
+            Tag::InlineCode => Code,
+            Tag::Italic => Em,
         }
     }
-    string
 }

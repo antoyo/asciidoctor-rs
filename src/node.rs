@@ -51,9 +51,16 @@ impl Text {
 /// A text item, like a word, link, bold text, …
 #[derive(Debug)]
 pub enum Item {
-    Bold(Text, Vec<Attribute>),
-    Italic(Text, Vec<Attribute>),
-    Mark(Text, Vec<Attribute>),
     Space,
+    Mark(Text, Vec<Attribute>),
+    Tag(Tag, Text, Vec<Attribute>),
     Word(String),
+}
+
+/// An asciidoctor tag.
+#[derive(Clone, Copy, Debug)]
+pub enum Tag {
+    Bold,
+    InlineCode,
+    Italic,
 }

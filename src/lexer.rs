@@ -92,6 +92,12 @@ impl<R: Read> Lexer<R> {
         Ok(())
     }
 
+    /// Parse a backquote.
+    fn backquote(&mut self) -> Result<Token> {
+        self.eat(b'`')?;
+        Ok(Backquote)
+    }
+
     /// Parse an closing square bracket.
     fn close_square_bracket(&mut self) -> Result<Token> {
         self.eat(b']')?;
@@ -239,6 +245,7 @@ impl<R: Read> Lexer<R> {
             b']' => self.close_square_bracket(),
             b'_' => self.underscore(),
             b'*' => self.star(),
+            b'`' => self.backquote(),
             _ => self.word(),
         }
     }

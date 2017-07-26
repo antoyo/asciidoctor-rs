@@ -29,8 +29,18 @@ use lexer::Lexer;
 use node::{Attribute, Item, Node, Text};
 use node::Attribute::Role;
 use node::Node::*;
+use node::Tag::{Bold, InlineCode, Italic};
 use token::Token;
 use token::Token::*;
+
+macro_rules! parse_text_between {
+    ($func_name:ident, $token:ident, $tag:ident) => {
+        fn $func_name(&mut self, attributes: Vec<Attribute>) -> Result<Item> {
+            let text = text_between!(self, $token);
+            Ok(Item::Tag($tag, text, attributes))
+        }
+    };
+}
 
 macro_rules! text_between {
     ($_self:expr, $token:ident) => {{
@@ -44,6 +54,7 @@ macro_rules! text_between {
 /// Type of node to parse.
 #[derive(Copy, Clone, Debug, PartialEq)]
 enum Type {
+    Backquote,
     CloseSquareBracket,
     HorizontalRule,
     NewLine,
@@ -93,12 +104,6 @@ impl<R: BufRead> Parser<R> {
         Ok(attributes)
     }
 
-    /// Parse a bold text.
-    fn bold(&mut self, attributes: Vec<Attribute>) -> Result<Item> {
-        let text = text_between!(self, Star);
-        Ok(Item::Bold(text, attributes))
-    }
-
     /// Eat the expected token or return an error if a different token is found.
     fn eat(&mut self, expected: Token) -> Result<()> {
         let token = self.tokens.token()?;
@@ -114,11 +119,9 @@ impl<R: BufRead> Parser<R> {
         Ok(HorizontalRule)
     }
 
-    /// Parse an italic text.
-    fn italic(&mut self, attributes: Vec<Attribute>) -> Result<Item> {
-        let text = text_between!(self, Underscore);
-        Ok(Item::Italic(text, attributes))
-    }
+    parse_text_between!(bold, Star, Bold);
+    parse_text_between!(inline_code, Backquote, InlineCode);
+    parse_text_between!(italic, Underscore, Italic);
 
     /// Parse a mark.
     fn mark(&mut self, attributes: Vec<Attribute>) -> Result<Item> {
@@ -136,8 +139,8 @@ impl<R: BufRead> Parser<R> {
                 self.tokens.token()?;
                 self.node()
             },
-            Type::CloseSquareBracket | Type::NumberSign | Type::OpenSquareBracket | Type::Star | Type::Underscore |
-                Type::Word =>
+            Type::Backquote | Type::CloseSquareBracket | Type::NumberSign | Type::OpenSquareBracket | Type::Star |
+                Type::Underscore | Type::Word =>
                 self.paragraph(),
         }
     }
@@ -147,6 +150,7 @@ impl<R: BufRead> Parser<R> {
     fn node_type(&mut self) -> Result<Type> {
         let ty =
             match *self.tokens.peek()? {
+                Backquote => Type::Backquote,
                 CloseSquareBracket => Type::CloseSquareBracket,
                 NewLine => Type::NewLine,
                 NumberSign => Type::NumberSign,
@@ -192,6 +196,7 @@ impl<R: BufRead> Parser<R> {
         let node_type = self.node_type()?;
         let item =
             match node_type {
+                Type::Backquote => self.inline_code(attributes)?,
                 Type::NumberSign => self.mark(attributes)?,
                 Type::OpenSquareBracket => {
                     if !attributes.is_empty() {
