@@ -22,7 +22,6 @@
 //! Parse asciidoctor.
 
 use std::io::BufRead;
-use std::mem;
 
 use error::{Error, Result};
 use error::ErrorKind::UnexpectedToken;
@@ -32,6 +31,15 @@ use node::Attribute::Role;
 use node::Node::*;
 use token::Token;
 use token::Token::*;
+
+macro_rules! text_between {
+    ($_self:expr, $token:ident) => {{
+        $_self.eat($token)?;
+        let text = $_self.text_while(|token| token != Type::$token)?;
+        $_self.eat($token)?;
+        text
+    }};
+}
 
 /// Type of node to parse.
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -49,7 +57,6 @@ enum Type {
 
 /// Asciidoctor parser.
 pub struct Parser<R: BufRead> {
-    attributes: Vec<Attribute>,
     tokens: Lexer<R>,
 }
 
@@ -59,7 +66,6 @@ impl<R: BufRead> Parser<R> {
     /// asciidoctor nodes.
     pub fn new(tokens: Lexer<R>) -> Self {
         Parser {
-            attributes: vec![],
             tokens,
         }
     }
@@ -75,12 +81,15 @@ impl<R: BufRead> Parser<R> {
     }
 
     /// Parse attributes and the node following it.
-    fn attributes(&mut self) -> Result<Node> {
-        self.eat(OpenSquareBracket)?;
-        self.attributes = vec![self.attribute()?];
-        // TODO: other attributes.
-        self.eat(CloseSquareBracket)?;
-        self.node()
+    fn attributes(&mut self) -> Result<Vec<Attribute>> {
+        let mut attributes = vec![];
+        if self.node_type()? == Type::OpenSquareBracket {
+            self.eat(OpenSquareBracket)?;
+            attributes.push(self.attribute()?);
+            // TODO: other attributes.
+            self.eat(CloseSquareBracket)?;
+        }
+        Ok(attributes)
     }
 
     /// Eat the expected token or return an error if a different token is found.
@@ -99,21 +108,15 @@ impl<R: BufRead> Parser<R> {
     }
 
     /// Parse an italic text.
-    fn italic(&mut self) -> Result<Item> {
-        // TODO: refactor to be able to reuse this part and others like mark, bold…
-        self.eat(Underscore)?;
-        let text = self.text_while(|token| token != Type::Underscore)?;
-        self.eat(Underscore)?;
-        let attributes = mem::replace(&mut self.attributes, vec![]);
+    fn italic(&mut self, attributes: Vec<Attribute>) -> Result<Item> {
+        let text = text_between!(self, Underscore);
         Ok(Item::Italic(text, attributes))
     }
 
     /// Parse a mark.
-    fn mark(&mut self) -> Result<Item> {
-        self.eat(NumberSign)?;
-        let text = self.text_while(|token| token != Type::NumberSign)?;
-        self.eat(NumberSign)?;
-        Ok(Item::Mark(text))
+    fn mark(&mut self, attributes: Vec<Attribute>) -> Result<Item> {
+        let text = text_between!(self, NumberSign);
+        Ok(Item::Mark(text, attributes))
     }
 
     /// An iterator over the nodes of the document.
@@ -121,13 +124,13 @@ impl<R: BufRead> Parser<R> {
         let ty = self.node_type()?;
         match ty {
             Type::HorizontalRule => self.horizontal_rule(),
-            Type::OpenSquareBracket => self.attributes(),
             Type::PageBreak => self.page_break(),
             Type::NewLine | Type::Space => {
                 self.tokens.token()?;
                 self.node()
             },
-            Type::CloseSquareBracket | Type::NumberSign | Type::Underscore | Type::Word => self.paragraph(),
+            Type::CloseSquareBracket | Type::NumberSign | Type::OpenSquareBracket | Type::Underscore | Type::Word =>
+                self.paragraph(),
         }
     }
 
@@ -175,6 +178,27 @@ impl<R: BufRead> Parser<R> {
         Ok(Item::Space)
     }
 
+    /// Parse a text item.
+    fn text_item(&mut self, attributes: Vec<Attribute>) -> Result<Item> {
+        let node_type = self.node_type()?;
+        let item =
+            match node_type {
+                Type::NumberSign => self.mark(attributes)?,
+                Type::OpenSquareBracket => {
+                    if !attributes.is_empty() {
+                        bail!(self.unexpected_token("["));
+                    }
+                    let attributes = self.attributes()?;
+                    self.text_item(attributes)?
+                },
+                Type::Space => self.space()?,
+                Type::Underscore => self.italic(attributes)?,
+                Type::Word => self.word()?,
+                _ => bail!("Should have got text token, but got {:?}", node_type), // TODO: better error.
+            };
+        Ok(item)
+    }
+
     /// Parse text while the predicate returns true.
     fn text_while<F: Fn(Type) -> bool>(&mut self, predicate: F) -> Result<Text> {
         let mut items = vec![];
@@ -183,18 +207,11 @@ impl<R: BufRead> Parser<R> {
             if !predicate(node_type) {
                 break;
             }
-            let item =
-                match node_type {
-                    Type::NewLine => {
-                        self.eat(NewLine)?;
-                        continue;
-                    },
-                    Type::NumberSign => self.mark()?,
-                    Type::Space => self.space()?,
-                    Type::Underscore => self.italic()?,
-                    Type::Word => self.word()?,
-                    _ => bail!("Should have got text token, but got {:?}", node_type), // TODO: better error.
-                };
+            if node_type == Type::NewLine {
+                self.eat(NewLine)?;
+                continue;
+            }
+            let item = self.text_item(vec![])?;
             items.push(item);
         }
         Ok(Text::new(items))

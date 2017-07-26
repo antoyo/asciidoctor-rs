@@ -1,7 +1,5 @@
-////
 // .basic
 [why]#chunky bacon#
-////
 
 // .emphasis
 _chunky bacon_

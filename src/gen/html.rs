@@ -76,16 +76,19 @@ pub trait HtmlGen {
     fn item(&mut self, item: &Item) -> Html {
         match *item {
             Item::Italic(ref text, ref attributes) => self.italic(text, attributes),
-            Item::Mark(ref text) => self.mark(text),
+            Item::Mark(ref text, ref attributes) => self.mark(text, attributes),
             Item::Space => SingleTextNode(" ".to_string()),
             Item::Word(ref text) => SingleTextNode(text.clone()),
         }
     }
 
-
-    fn mark(&mut self, text: &Text) -> Html {
+    fn mark(&mut self, text: &Text, attributes: &[Attribute]) -> Html {
         let text = self.text(text);
-        mark(text)
+        if attributes.is_empty() {
+            mark(text)
+        } else {
+            span_a(attributes_to_string(attributes), text)
+        }
     }
 
     fn page_break(&mut self) -> Html {
@@ -123,6 +126,7 @@ pub enum Html {
     Mark(Box<Html>),
     P(Box<Html>),
     SingleTextNode(String),
+    Span(String, Box<Html>),
     TextNode(Vec<Html>),
 }
 
@@ -136,6 +140,7 @@ impl Html {
             Mark(ref children) => tag("mark", children, writer),
             P(ref children) => tag("p", children, writer),
             SingleTextNode(ref text) => write_text(text, writer),
+            Span(ref attributes, ref children) => tag_a("span", attributes, children, writer),
             TextNode(ref nodes) => {
                 for node in nodes {
                     node.write(writer)?;
@@ -169,6 +174,11 @@ pub fn mark(children: Html) -> Html {
 /// Create a p element.
 pub fn p(children: Html) -> Html {
     P(Box::new(children))
+}
+
+/// Create a span element.
+pub fn span_a(attributes: String, children: Html) -> Html {
+    Span(attributes, Box::new(children))
 }
 
 fn tag<W: Write>(name: &str, children: &Html, writer: &mut W) -> Result<()> {

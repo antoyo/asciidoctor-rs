@@ -53,7 +53,7 @@ impl Text {
 pub enum Item {
     //Bold(Box<Text>),
     Italic(Text, Vec<Attribute>),
-    Mark(Text),
+    Mark(Text, Vec<Attribute>),
     Space,
     Word(String),
 }
