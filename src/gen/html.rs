@@ -56,12 +56,9 @@ pub struct Generator {
 
 /// Genarate an HTML node from a asciidoctor node.
 pub trait HtmlGen {
-    fn node(&mut self, node: &Node) -> Html {
-        match *node {
-            HorizontalRule => self.horizontal_rule(),
-            PageBreak => self.page_break(),
-            Paragraph(ref text) => self.paragraph(text),
-        }
+    fn bold(&mut self, text: &Text, attributes: &[Attribute]) -> Html {
+        let text = self.text(text);
+        bold_a(attributes_to_string(attributes), text)
     }
 
     fn horizontal_rule(&mut self) -> Html {
@@ -75,6 +72,7 @@ pub trait HtmlGen {
 
     fn item(&mut self, item: &Item) -> Html {
         match *item {
+            Item::Bold(ref text, ref attributes) => self.bold(text, attributes),
             Item::Italic(ref text, ref attributes) => self.italic(text, attributes),
             Item::Mark(ref text, ref attributes) => self.mark(text, attributes),
             Item::Space => SingleTextNode(" ".to_string()),
@@ -88,6 +86,14 @@ pub trait HtmlGen {
             mark(text)
         } else {
             span_a(attributes_to_string(attributes), text)
+        }
+    }
+
+    fn node(&mut self, node: &Node) -> Html {
+        match *node {
+            HorizontalRule => self.horizontal_rule(),
+            PageBreak => self.page_break(),
+            Paragraph(ref text) => self.paragraph(text),
         }
     }
 
@@ -127,6 +133,7 @@ pub enum Html {
     P(Box<Html>),
     SingleTextNode(String),
     Span(String, Box<Html>),
+    Strong(String, Box<Html>),
     TextNode(Vec<Html>),
 }
 
@@ -141,6 +148,7 @@ impl Html {
             P(ref children) => tag("p", children, writer),
             SingleTextNode(ref text) => write_text(text, writer),
             Span(ref attributes, ref children) => tag_a("span", attributes, children, writer),
+            Strong(ref attributes, ref children) => tag_a("strong", attributes, children, writer),
             TextNode(ref nodes) => {
                 for node in nodes {
                     node.write(writer)?;
@@ -149,6 +157,11 @@ impl Html {
             },
         }
     }
+}
+
+/// Create a bold element.
+pub fn bold_a(attributes: String, children: Html) -> Html {
+    Strong(attributes, Box::new(children))
 }
 
 /// Create a div element with attributes.

@@ -208,6 +208,12 @@ impl<R: Read> Lexer<R> {
         Ok(Space)
     }
 
+    /// Parse a star.
+    fn star(&mut self) -> Result<Token> {
+        self.eat(b'*')?;
+        Ok(Star)
+    }
+
     /// Get the next token from the file.
     pub fn token(&mut self) -> Result<Token> {
         if let Some(token) = self.next_token.take() {
@@ -232,6 +238,7 @@ impl<R: Read> Lexer<R> {
             b'[' => self.open_square_bracket(),
             b']' => self.close_square_bracket(),
             b'_' => self.underscore(),
+            b'*' => self.star(),
             _ => self.word(),
         }
     }
@@ -263,7 +270,7 @@ impl<R: Read> Lexer<R> {
         let start_index = self.buffer_index;
         self.advance_while(|c| !b" *_`#[]^~:\n\r\t".contains(&c))?;
         if self.buffer_index == start_index {
-            bail!("bug in the parser, next character `{}` is not part of a word token",
+            bail!("bug in the lexer, next character `{}` is not part of a word token",
                   char::from_u32(self.current_char()? as u32)
                       .ok_or("byte is not a character")?)
         }

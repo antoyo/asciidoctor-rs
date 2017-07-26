@@ -51,7 +51,7 @@ impl Text {
 /// A text item, like a word, link, bold text, …
 #[derive(Debug)]
 pub enum Item {
-    //Bold(Box<Text>),
+    Bold(Text, Vec<Attribute>),
     Italic(Text, Vec<Attribute>),
     Mark(Text, Vec<Attribute>),
     Space,

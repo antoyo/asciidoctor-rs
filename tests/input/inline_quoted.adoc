@@ -7,13 +7,13 @@ _chunky bacon_
 // .emphasis_with_role
 [why]_chunky bacon_
 
-////
 // .strong
 *chunky bacon*
 
 // .strong_with_role
 [why]*chunky bacon*
 
+////
 // .monospaced
 `hello world!`
 

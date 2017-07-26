@@ -51,6 +51,7 @@ enum Type {
     OpenSquareBracket,
     PageBreak,
     Space,
+    Star,
     Underscore,
     Word,
 }
@@ -92,6 +93,12 @@ impl<R: BufRead> Parser<R> {
         Ok(attributes)
     }
 
+    /// Parse a bold text.
+    fn bold(&mut self, attributes: Vec<Attribute>) -> Result<Item> {
+        let text = text_between!(self, Star);
+        Ok(Item::Bold(text, attributes))
+    }
+
     /// Eat the expected token or return an error if a different token is found.
     fn eat(&mut self, expected: Token) -> Result<()> {
         let token = self.tokens.token()?;
@@ -129,7 +136,8 @@ impl<R: BufRead> Parser<R> {
                 self.tokens.token()?;
                 self.node()
             },
-            Type::CloseSquareBracket | Type::NumberSign | Type::OpenSquareBracket | Type::Underscore | Type::Word =>
+            Type::CloseSquareBracket | Type::NumberSign | Type::OpenSquareBracket | Type::Star | Type::Underscore |
+                Type::Word =>
                 self.paragraph(),
         }
     }
@@ -144,6 +152,7 @@ impl<R: BufRead> Parser<R> {
                 NumberSign => Type::NumberSign,
                 OpenSquareBracket => Type::OpenSquareBracket,
                 Space => Type::Space,
+                Star => Type::Star,
                 TripleApos => Type::HorizontalRule,
                 TripleLt => Type::PageBreak,
                 Underscore => Type::Underscore,
@@ -192,6 +201,7 @@ impl<R: BufRead> Parser<R> {
                     self.text_item(attributes)?
                 },
                 Type::Space => self.space()?,
+                Type::Star => self.bold(attributes)?,
                 Type::Underscore => self.italic(attributes)?,
                 Type::Word => self.word()?,
                 _ => bail!("Should have got text token, but got {:?}", node_type), // TODO: better error.
