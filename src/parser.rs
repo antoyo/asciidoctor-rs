@@ -27,7 +27,7 @@ use error::{Error, Result};
 use error::ErrorKind::UnexpectedToken;
 use lexer::Lexer;
 use node::{Attribute, Item, Node, Text};
-use node::Attribute::Role;
+use node::Attribute::{Id, Role};
 use node::Node::*;
 use node::Tag::*;
 use token::Token;
@@ -88,8 +88,15 @@ impl<R: BufRead> Parser<R> {
     fn attribute(&mut self) -> Result<Attribute> {
         let attribute =
             match self.tokens.token()? {
+                NumberSign => {
+                    if let Word(word) = self.tokens.token()? {
+                        Id(String::from_utf8(word)?)
+                    } else {
+                        bail!(self.unexpected_token("ident")) // FIXME: does not show the right actual token because it was consumed by the call to token().
+                    }
+                },
                 Word(word) => Role(String::from_utf8(word)?),
-                _ => bail!(self.unexpected_token("ident")),
+                _ => bail!(self.unexpected_token("ident")), // FIXME: does not show the right actual token because it was consumed by the call to token().
             };
         Ok(attribute)
     }
@@ -110,7 +117,7 @@ impl<R: BufRead> Parser<R> {
     fn eat(&mut self, expected: Token) -> Result<()> {
         let token = self.tokens.token()?;
         if token != expected {
-            bail!(self.unexpected_token(&expected.to_string()));
+            bail!(self.unexpected_token(&expected.to_string())); // FIXME: does not show the right actual token because it was consumed by the call to token().
         }
         Ok(())
     }

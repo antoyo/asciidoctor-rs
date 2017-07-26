@@ -43,6 +43,8 @@ macro_rules! attr {
     }};
 }
 
+type Id = String;
+
 /// Write the resulting HTML code for the specified `node` in the `writer`.
 pub fn gen<G: HtmlGen, W: Write>(gen: &mut G, node: &Node, writer: &mut W) -> Result<()> {
     let html = gen.node(node);
@@ -102,7 +104,12 @@ pub trait HtmlGen {
 
     fn tag(&mut self, tag: Tag, text: &Text, attributes: &[Attribute]) -> Html {
         let text = self.text(text);
-        Tag(tag, attributes_to_string(attributes), Box::new(text))
+        let tag = Tag(tag, attributes_to_string(attributes), Box::new(text));
+        if let Some(id) = find_id_attribute(attributes) {
+            Seq(Box::new(A(id)), Box::new(tag))
+        } else {
+            tag
+        }
     }
 
     fn text(&mut self, text: &Text) -> Html {
@@ -118,11 +125,13 @@ impl HtmlGen for Generator {}
 
 /// Represent an HTML node with its children.
 pub enum Html {
+    A(Id),
     Div(String, Box<Html>),
     Empty,
     Hr,
     Mark(Box<Html>),
     P(Box<Html>),
+    Seq(Box<Html>, Box<Html>),
     SingleTextNode(String),
     Span(String, Box<Html>),
     Tag(Tag, String, Box<Html>),
@@ -132,11 +141,16 @@ pub enum Html {
 impl Html {
     fn write<W: Write>(&self, writer: &mut W) -> Result<()> {
         match *self {
+            A(ref id) => tag_a_without_child("a", &attr! { id = id }, writer),
             Div(ref attributes, ref children) => tag_a("div", attributes, children, writer),
             Empty => Ok(()),
             Hr => write_text("<hr/>", writer),
             Mark(ref children) => tag("mark", children, writer),
             P(ref children) => tag("p", children, writer),
+            Seq(ref child1, ref child2) => {
+                child1.write(writer)?;
+                child2.write(writer)
+            },
             SingleTextNode(ref text) => write_text(text, writer),
             Span(ref attributes, ref children) => tag_a("span", attributes, children, writer),
             Tag(ref tag, ref attributes, ref children) => tag_a(tag.to_string(), attributes, children, writer),
@@ -154,6 +168,7 @@ fn attributes_to_string(attributes: &[Attribute]) -> String {
     let mut string = String::new();
     for attribute in attributes {
         match *attribute {
+            Attribute::Id(ref id) => string.push_str(&format!("id=\"{}\"", id)), // TODO: needs space around?
             Role(ref role) => string.push_str(&format!("class=\"{}\"", role)), // TODO: needs space around?
         }
     }
@@ -163,6 +178,15 @@ fn attributes_to_string(attributes: &[Attribute]) -> String {
 /// Create a div element with attributes.
 pub fn div_a(attributes: String, children: Html) -> Html {
     Div(attributes, Box::new(children))
+}
+
+fn find_id_attribute(attributes: &[Attribute]) -> Option<String> {
+    for attribute in attributes {
+        if let Attribute::Id(ref id) = *attribute {
+            return Some(id.clone());
+        }
+    }
+    None
 }
 
 /// Create a hr element.
@@ -195,6 +219,12 @@ fn tag<W: Write>(name: &str, children: &Html, writer: &mut W) -> Result<()> {
 fn tag_a<W: Write>(name: &str, attributes: &str, children: &Html, writer: &mut W) -> Result<()> {
     write!(writer, "<{} {}>", name, attributes)?;
     children.write(writer)?;
+    write!(writer, "</{}>", name)?;
+    Ok(())
+}
+
+fn tag_a_without_child<W: Write>(name: &str, attributes: &str, writer: &mut W) -> Result<()> {
+    write!(writer, "<{} {}>", name, attributes)?;
     write!(writer, "</{}>", name)?;
     Ok(())
 }

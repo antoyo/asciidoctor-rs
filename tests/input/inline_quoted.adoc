@@ -52,10 +52,13 @@ asciimath:[sqrt(4) = 2]
 
 // .latexmath
 latexmath:[$C = \alpha + \beta Y^{\gamma} + \epsilon$]
+////
 
 // .with_id
 [#why]_chunky bacon_
 
+////
+// TODO: `` is the start of unconstrained inline code block.
 // .mixed_monospace_bold_italic
 `*_monospace bold italic phrase_*` and le``**__tt__**``ers
 ////

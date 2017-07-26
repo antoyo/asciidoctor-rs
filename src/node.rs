@@ -24,7 +24,7 @@ use self::Tag::*;
 /// An attribute like a role or an ID.
 #[derive(Debug)]
 pub enum Attribute {
-    //Id(String),
+    Id(String),
     Role(String),
 }
 
