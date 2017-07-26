@@ -25,13 +25,11 @@ _chunky bacon_
 // .superscript_with_role
 [why]^super^chunky bacon
 
-////
 // .subscript
 ~sub~chunky bacon
 
 // .subscript_with_role
 [why]~sub~chunky bacon
-////
 
 // .mark
 #chunky bacon#

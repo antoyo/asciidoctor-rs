@@ -65,6 +65,7 @@ pub enum Tag {
     Bold,
     InlineCode,
     Italic,
+    SubScript,
     SuperScript,
 }
 
@@ -75,6 +76,7 @@ impl Tag {
             Bold => "strong",
             InlineCode => "code",
             Italic => "em",
+            SubScript => "sub",
             SuperScript => "sup",
         }
     }

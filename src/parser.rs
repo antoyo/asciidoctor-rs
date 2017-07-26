@@ -29,7 +29,7 @@ use lexer::Lexer;
 use node::{Attribute, Item, Node, Text};
 use node::Attribute::Role;
 use node::Node::*;
-use node::Tag::{Bold, InlineCode, Italic, SuperScript};
+use node::Tag::*;
 use token::Token;
 use token::Token::*;
 
@@ -64,6 +64,7 @@ enum Type {
     PageBreak,
     Space,
     Star,
+    Tilde,
     Underscore,
     Word,
 }
@@ -123,6 +124,7 @@ impl<R: BufRead> Parser<R> {
     parse_text_between!(bold, Star, Bold);
     parse_text_between!(inline_code, Backquote, InlineCode);
     parse_text_between!(italic, Underscore, Italic);
+    parse_text_between!(subscript, Tilde, SubScript);
     parse_text_between!(superscript, Caret, SuperScript);
 
     /// Parse a mark.
@@ -142,7 +144,7 @@ impl<R: BufRead> Parser<R> {
                 self.node()
             },
             Type::Backquote | Type::Caret | Type::CloseSquareBracket | Type::NumberSign | Type::OpenSquareBracket |
-                Type::Star | Type::Underscore | Type::Word =>
+                Type::Star | Type::Tilde | Type::Underscore | Type::Word =>
                 self.paragraph(),
         }
     }
@@ -160,6 +162,7 @@ impl<R: BufRead> Parser<R> {
                 OpenSquareBracket => Type::OpenSquareBracket,
                 Space => Type::Space,
                 Star => Type::Star,
+                Tilde => Type::Tilde,
                 TripleApos => Type::HorizontalRule,
                 TripleLt => Type::PageBreak,
                 Underscore => Type::Underscore,
@@ -211,6 +214,7 @@ impl<R: BufRead> Parser<R> {
                 },
                 Type::Space => self.space()?,
                 Type::Star => self.bold(attributes)?,
+                Type::Tilde => self.subscript(attributes)?,
                 Type::Underscore => self.italic(attributes)?,
                 Type::Word => self.word()?,
                 _ => bail!("Should have got text token, but got {:?}", node_type), // TODO: better error.

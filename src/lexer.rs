@@ -109,6 +109,7 @@ impl<R: Read> Lexer<R> {
     lex!(open_square_bracket, b'[', OpenSquareBracket);
     lex!(space, b' ', Space);
     lex!(star, b'*', Star);
+    lex!(tilde, b'~', Tilde);
     lex!(underscore, b'_', Underscore);
 
     /// Parse (and ignore) a comment.
@@ -224,6 +225,7 @@ impl<R: Read> Lexer<R> {
             b'*' => self.star(),
             b'`' => self.backquote(),
             b'^' => self.caret(),
+            b'~' => self.tilde(),
             _ => self.word(),
         }
     }
