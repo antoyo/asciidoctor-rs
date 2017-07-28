@@ -39,6 +39,20 @@ macro_rules! lex {
     };
 }
 
+macro_rules! lex1_or_2 {
+    ($func_name:ident, $char:expr, $token:ident, $token2:ident) => {
+        fn $func_name(&mut self) -> Result<Token> {
+            self.eat($char)?;
+            if self.current_char()? == $char {
+                self.eat($char)?;
+                Ok($token2)
+            } else {
+                Ok($token)
+            }
+        }
+    };
+}
+
 const BUFFER_SIZE: usize = 4096;
 
 struct NextToken {
@@ -101,16 +115,16 @@ impl<R: Read> Lexer<R> {
         Ok(())
     }
 
-    lex!(backquote, b'`', Backquote);
+    lex1_or_2!(backquote, b'`', Backquote, DoubleBackquote);
     lex!(caret, b'^', Caret);
     lex!(close_square_bracket, b']', CloseSquareBracket);
     lex!(newline, b'\n', NewLine);
     lex!(number_sign, b'#', NumberSign);
     lex!(open_square_bracket, b'[', OpenSquareBracket);
     lex!(space, b' ', Space);
-    lex!(star, b'*', Star);
+    lex1_or_2!(star, b'*', Star, DoubleStar);
     lex!(tilde, b'~', Tilde);
-    lex!(underscore, b'_', Underscore);
+    lex1_or_2!(underscore, b'_', Underscore, DoubleUnderscore);
 
     /// Parse (and ignore) a comment.
     fn comment(&mut self) -> Result<()> {

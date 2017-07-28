@@ -57,6 +57,9 @@ enum Type {
     Backquote,
     Caret,
     CloseSquareBracket,
+    DoubleBackquote,
+    DoubleStar,
+    DoubleUnderscore,
     HorizontalRule,
     NewLine,
     NumberSign,
@@ -133,6 +136,9 @@ impl<R: BufRead> Parser<R> {
     parse_text_between!(italic, Underscore, Italic);
     parse_text_between!(subscript, Tilde, SubScript);
     parse_text_between!(superscript, Caret, SuperScript);
+    parse_text_between!(unconstrained_bold, DoubleStar, Bold);
+    parse_text_between!(unconstrained_inline_code, DoubleBackquote, InlineCode);
+    parse_text_between!(unconstrained_italic, DoubleUnderscore, Italic);
 
     /// Parse a mark.
     fn mark(&mut self, attributes: Vec<Attribute>) -> Result<Item> {
@@ -150,8 +156,9 @@ impl<R: BufRead> Parser<R> {
                 self.tokens.token()?;
                 self.node()
             },
-            Type::Backquote | Type::Caret | Type::CloseSquareBracket | Type::NumberSign | Type::OpenSquareBracket |
-                Type::Star | Type::Tilde | Type::Underscore | Type::Word =>
+            Type::Backquote | Type::Caret | Type::CloseSquareBracket | Type::DoubleBackquote | Type::DoubleStar |
+                Type::DoubleUnderscore | Type::NumberSign | Type::OpenSquareBracket | Type::Star | Type::Tilde |
+                Type::Underscore | Type::Word =>
                 self.paragraph(),
         }
     }
@@ -164,6 +171,9 @@ impl<R: BufRead> Parser<R> {
                 Backquote => Type::Backquote,
                 Caret => Type::Caret,
                 CloseSquareBracket => Type::CloseSquareBracket,
+                DoubleBackquote => Type::DoubleBackquote,
+                DoubleStar => Type::DoubleStar,
+                DoubleUnderscore => Type::DoubleUnderscore,
                 NewLine => Type::NewLine,
                 NumberSign => Type::NumberSign,
                 OpenSquareBracket => Type::OpenSquareBracket,
@@ -211,6 +221,9 @@ impl<R: BufRead> Parser<R> {
             match node_type {
                 Type::Backquote => self.inline_code(attributes)?,
                 Type::Caret => self.superscript(attributes)?,
+                Type::DoubleBackquote => self.unconstrained_inline_code(attributes)?,
+                Type::DoubleStar => self.unconstrained_bold(attributes)?,
+                Type::DoubleUnderscore => self.unconstrained_italic(attributes)?,
                 Type::NumberSign => self.mark(attributes)?,
                 Type::OpenSquareBracket => {
                     if !attributes.is_empty() {
