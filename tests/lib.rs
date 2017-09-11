@@ -28,7 +28,6 @@ use std::io::Read;
 use html_diff::get_differences;
 
 use asciidoctor::{Error, Lexer, Parser};
-use asciidoctor::ErrorKind::Eof;
 use asciidoctor::html::{self, Generator};
 
 #[test]
@@ -50,7 +49,7 @@ fn generate_html_and_cmp(name: &str) {
             let node = parser.node();
             match node {
                 Ok(node) => html::gen(&mut generator, &node, &mut buffer).unwrap(),
-                Err(Error(Eof, _)) => break,
+                Err(Error::Eof) => break,
                 Err(err) => panic!("cannot parse asciidoctor: {}", err),
             }
         }

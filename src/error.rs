@@ -19,40 +19,62 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
+use std::fmt::{self, Display, Formatter};
 use std::io;
+use std::result;
 use std::string::FromUtf8Error;
 
 use position::Pos;
+use self::Error::{Eof, Msg, UnexpectedChar, UnexpectedToken};
 
-error_chain! {
-    errors {
-        Eof {
-            description("end of file")
-            display("end of file")
-        }
-        UnexpectedChar {
-            actual: u8,
-            expected: Vec<u8>,
-            pos: Pos,
-        } {
-            description("expected a character, but found another character")
-            display("{}:{}: expected {}, but found `{}` on line {}, column {}", pos.line, pos.column,
-                    expected_chars(expected), actual, pos.line, pos.column)
-        }
-        UnexpectedToken {
-            actual: String,
-            expected: String,
-            pos: Pos,
-        } {
-            description("unexpected token")
-            display("{}:{}: expected {}, but found `{}` on line {}, column {}", pos.line, pos.column, expected, actual,
-                    pos.line, pos.column)
+pub type Result<T> = result::Result<T, Error>;
+
+#[derive(Debug)]
+pub enum Error {
+    Eof,
+    Msg(String),
+    UnexpectedChar {
+        actual: u8,
+        expected: Vec<u8>,
+        pos: Pos,
+    },
+    UnexpectedToken {
+        actual: String,
+        expected: String,
+        pos: Pos,
+    },
+}
+
+impl Display for Error {
+    fn fmt(&self, fmt: &mut Formatter) -> fmt::Result {
+        match *self {
+            Eof => write!(fmt, "end of file"),
+            Msg(ref message) => write!(fmt, "{}", message),
+            UnexpectedChar { ref actual, ref expected, ref pos } =>
+                write!(fmt, "{}:{}: expected {}, but found `{}` on line {}, column {}", pos.line, pos.column,
+                       expected_chars(expected), actual, pos.line, pos.column),
+            UnexpectedToken { ref actual, ref expected, ref pos } =>
+                write!(fmt, "{}:{}: expected {}, but found `{}` on line {}, column {}", pos.line, pos.column, expected,
+                       actual, pos.line, pos.column),
         }
     }
+}
 
-    foreign_links {
-        Utf8(FromUtf8Error);
-        Io(io::Error);
+impl<'a> From<&'a str> for Error {
+    fn from(string: &str) -> Self {
+        Msg(string.to_string())
+    }
+}
+
+impl From<io::Error> for Error {
+    fn from(error: io::Error) -> Self {
+        Msg(error.to_string())
+    }
+}
+
+impl From<FromUtf8Error> for Error {
+    fn from(error: FromUtf8Error) -> Self {
+        Msg(error.to_string())
     }
 }
 

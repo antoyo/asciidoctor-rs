@@ -4,7 +4,6 @@ name = "asciidoctor"
 version = "0.1.0"
 
 [dependencies]
-error-chain = "^0.10.0"
 
 [dev-dependencies]
 html-diff = "^0.0.4"

@@ -24,7 +24,7 @@
 use std::char;
 use std::io::Read;
 
-use error::ErrorKind::{Eof, UnexpectedChar};
+use error::Error;
 use error::Result;
 use position::Pos;
 use token::Token;
@@ -168,7 +168,7 @@ impl<R: Read> Lexer<R> {
             Ok(())
         }
         else {
-            bail!(UnexpectedChar {
+            Err(Error::UnexpectedChar {
                 actual,
                 expected: vec![expected],
                 pos: self.pos(),
@@ -205,7 +205,7 @@ impl<R: Read> Lexer<R> {
         if self.buffer_index >= self.buffer_size {
             self.buffer_size = self.reader.read(&mut self.buffer)?;
             if self.buffer_size == 0 {
-                bail!(Eof);
+                return Err(Error::Eof);
             }
             self.buffer_index = 0;
         }
@@ -265,9 +265,9 @@ impl<R: Read> Lexer<R> {
         let start_index = self.buffer_index;
         self.advance_while(|c| !b" *_`#[]^~:\n\r\t".contains(&c))?;
         if self.buffer_index == start_index {
-            bail!("bug in the lexer, next character `{}` is not part of a word token",
+            return Err(Error::Msg(format!("bug in the lexer, next character `{}` is not part of a word token",
                   char::from_u32(self.current_char()? as u32)
-                      .ok_or("byte is not a character")?)
+                      .ok_or("byte is not a character")?)));
         }
         Ok(Word(self.buffer[start_index..self.buffer_index].to_vec()))
     }

@@ -24,7 +24,6 @@
 use std::io::BufRead;
 
 use error::{Error, Result};
-use error::ErrorKind::UnexpectedToken;
 use lexer::Lexer;
 use node::{Attribute, Item, Node, Text};
 use node::Attribute::{Id, Role};
@@ -95,11 +94,11 @@ impl<R: BufRead> Parser<R> {
                     if let Word(word) = self.tokens.token()? {
                         Id(String::from_utf8(word)?)
                     } else {
-                        bail!(self.unexpected_token("ident")) // FIXME: does not show the right actual token because it was consumed by the call to token().
+                        return Err(self.unexpected_token("ident")) // FIXME: does not show the right actual token because it was consumed by the call to token().
                     }
                 },
                 Word(word) => Role(String::from_utf8(word)?),
-                _ => bail!(self.unexpected_token("ident")), // FIXME: does not show the right actual token because it was consumed by the call to token().
+                _ => return Err(self.unexpected_token("ident")), // FIXME: does not show the right actual token because it was consumed by the call to token().
             };
         Ok(attribute)
     }
@@ -120,7 +119,7 @@ impl<R: BufRead> Parser<R> {
     fn eat(&mut self, expected: Token) -> Result<()> {
         let token = self.tokens.token()?;
         if token != expected {
-            bail!(self.unexpected_token(&expected.to_string())); // FIXME: does not show the right actual token because it was consumed by the call to token().
+            return Err(self.unexpected_token(&expected.to_string())); // FIXME: does not show the right actual token because it was consumed by the call to token().
         }
         Ok(())
     }
@@ -227,7 +226,7 @@ impl<R: BufRead> Parser<R> {
                 Type::NumberSign => self.mark(attributes)?,
                 Type::OpenSquareBracket => {
                     if !attributes.is_empty() {
-                        bail!(self.unexpected_token("["));
+                        return Err(self.unexpected_token("["));
                     }
                     let attributes = self.attributes()?;
                     self.text_item(attributes)?
@@ -237,7 +236,7 @@ impl<R: BufRead> Parser<R> {
                 Type::Tilde => self.subscript(attributes)?,
                 Type::Underscore => self.italic(attributes)?,
                 Type::Word => self.word()?,
-                _ => bail!("Should have got text token, but got {:?}", node_type), // TODO: better error.
+                _ => return Err(Error::Msg(format!("Should have got text token, but got {:?}", node_type))), // TODO: better error.
             };
         Ok(item)
     }
@@ -265,11 +264,11 @@ impl<R: BufRead> Parser<R> {
         let actual = self.tokens.peek()
             .map(|token| token.to_string())
             .unwrap_or_else(|_| "(unknown token)".to_string());
-        UnexpectedToken {
+        Error::UnexpectedToken {
             actual,
             expected: expected.to_string(),
             pos: self.tokens.pos(),
-        }.into()
+        }
     }
 
     /// Parse a single word.
@@ -278,7 +277,7 @@ impl<R: BufRead> Parser<R> {
             Ok(Item::Word(String::from_utf8(bytes)?))
         }
         else {
-            bail!("Should have got word token"); // TODO: better error.
+            return Err(Error::Msg("Should have got word token".to_string())); // TODO: better error.
         }
     }
 }
