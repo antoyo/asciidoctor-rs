@@ -44,31 +44,10 @@ macro_rules! parse_text_between {
 macro_rules! text_between {
     ($_self:expr, $token:ident) => {{
         $_self.eat($token)?;
-        let text = $_self.text_while(|token| token != Type::$token)?;
+        let text = $_self.text_while(|token| token != &$token)?;
         $_self.eat($token)?;
         text
     }};
-}
-
-/// Type of node to parse.
-#[derive(Copy, Clone, Debug, PartialEq)]
-enum Type {
-    Backquote,
-    Caret,
-    CloseSquareBracket,
-    DoubleBackquote,
-    DoubleStar,
-    DoubleUnderscore,
-    HorizontalRule,
-    NewLine,
-    NumberSign,
-    OpenSquareBracket,
-    PageBreak,
-    Space,
-    Star,
-    Tilde,
-    Underscore,
-    Word,
 }
 
 /// Asciidoctor parser.
@@ -106,7 +85,7 @@ impl<R: BufRead> Parser<R> {
     /// Parse attributes and the node following it.
     fn attributes(&mut self) -> Result<Vec<Attribute>> {
         let mut attributes = vec![];
-        if self.node_type()? == Type::OpenSquareBracket {
+        if *self.tokens.peek()? == OpenSquareBracket {
             self.eat(OpenSquareBracket)?;
             attributes.push(self.attribute()?);
             // TODO: other attributes.
@@ -147,44 +126,20 @@ impl<R: BufRead> Parser<R> {
 
     /// An iterator over the nodes of the document.
     pub fn node(&mut self) -> Result<Node> {
-        let ty = self.node_type()?;
-        match ty {
-            Type::HorizontalRule => self.horizontal_rule(),
-            Type::PageBreak => self.page_break(),
-            Type::NewLine | Type::Space => {
-                self.tokens.token()?;
-                self.node()
-            },
-            Type::Backquote | Type::Caret | Type::CloseSquareBracket | Type::DoubleBackquote | Type::DoubleStar |
-                Type::DoubleUnderscore | Type::NumberSign | Type::OpenSquareBracket | Type::Star | Type::Tilde |
-                Type::Underscore | Type::Word =>
-                self.paragraph(),
-        }
-    }
-
-    /// Get the node type.
-    // TODO: find a way to satisfy the borrow checker and remove this node type.
-    fn node_type(&mut self) -> Result<Type> {
-        let ty =
+        let func =
             match *self.tokens.peek()? {
-                Backquote => Type::Backquote,
-                Caret => Type::Caret,
-                CloseSquareBracket => Type::CloseSquareBracket,
-                DoubleBackquote => Type::DoubleBackquote,
-                DoubleStar => Type::DoubleStar,
-                DoubleUnderscore => Type::DoubleUnderscore,
-                NewLine => Type::NewLine,
-                NumberSign => Type::NumberSign,
-                OpenSquareBracket => Type::OpenSquareBracket,
-                Space => Type::Space,
-                Star => Type::Star,
-                Tilde => Type::Tilde,
-                TripleApos => Type::HorizontalRule,
-                TripleLt => Type::PageBreak,
-                Underscore => Type::Underscore,
-                Word(_) => Type::Word,
+                TripleApos => Self::horizontal_rule,
+                TripleLt => Self::page_break,
+                NewLine | Space => {
+                    self.tokens.token()?;
+                    Self::node
+                },
+                Backquote | Caret | CloseSquareBracket | DoubleBackquote | DoubleStar |
+                    DoubleUnderscore | NumberSign | OpenSquareBracket | Star | Tilde |
+                    Underscore | Word(_) =>
+                    Self::paragraph,
             };
-        Ok(ty)
+        func(self)
     }
 
     /// Parse a page break
@@ -197,7 +152,7 @@ impl<R: BufRead> Parser<R> {
     fn paragraph(&mut self) -> Result<Node> {
         let mut items = vec![];
         loop {
-            let mut line = self.text_while(|node_type| node_type != Type::NewLine)?;
+            let mut line = self.text_while(|node| node != &NewLine)?;
             // End of paragraph on an empty line.
             if line.items.is_empty() {
                 break;
@@ -208,48 +163,51 @@ impl<R: BufRead> Parser<R> {
     }
 
     /// Parse a space.
-    fn space(&mut self) -> Result<Item> {
+    fn space(&mut self, _attributes: Vec<Attribute>) -> Result<Item> {
         self.eat(Space)?;
         Ok(Item::Space)
     }
 
     /// Parse a text item.
-    fn text_item(&mut self, attributes: Vec<Attribute>) -> Result<Item> {
-        let node_type = self.node_type()?;
-        let item =
-            match node_type {
-                Type::Backquote => self.inline_code(attributes)?,
-                Type::Caret => self.superscript(attributes)?,
-                Type::DoubleBackquote => self.unconstrained_inline_code(attributes)?,
-                Type::DoubleStar => self.unconstrained_bold(attributes)?,
-                Type::DoubleUnderscore => self.unconstrained_italic(attributes)?,
-                Type::NumberSign => self.mark(attributes)?,
-                Type::OpenSquareBracket => {
-                    if !attributes.is_empty() {
-                        return Err(self.unexpected_token("["));
-                    }
-                    let attributes = self.attributes()?;
-                    self.text_item(attributes)?
-                },
-                Type::Space => self.space()?,
-                Type::Star => self.bold(attributes)?,
-                Type::Tilde => self.subscript(attributes)?,
-                Type::Underscore => self.italic(attributes)?,
-                Type::Word => self.word()?,
-                _ => return Err(Error::Msg(format!("Should have got text token, but got {:?}", node_type))), // TODO: better error.
+    fn text_item(&mut self, mut attributes: Vec<Attribute>) -> Result<Item> {
+        if *self.tokens.peek()? == OpenSquareBracket {
+            if !attributes.is_empty() {
+                return Err(self.unexpected_token("["));
+            }
+            attributes = self.attributes()?;
+        }
+        let func =
+            match *self.tokens.peek()? {
+                Backquote => Self::inline_code,
+                Caret => Self::superscript,
+                DoubleBackquote => Self::unconstrained_inline_code,
+                DoubleStar => Self::unconstrained_bold,
+                DoubleUnderscore => Self::unconstrained_italic,
+                NumberSign => Self::mark,
+                OpenSquareBracket => Self::text_item,
+                Space => Self::space,
+                Star => Self::bold,
+                Tilde => Self::subscript,
+                Underscore => Self::italic,
+                Word(_) => Self::word,
+                ref node => return Err(Error::Msg(format!("Should have got text token, but got {:?}", node))), // TODO: better error.
             };
+        let item = func(self, attributes)?;
         Ok(item)
     }
 
     /// Parse text while the predicate returns true.
-    fn text_while<F: Fn(Type) -> bool>(&mut self, predicate: F) -> Result<Text> {
+    fn text_while<F: Fn(&Token) -> bool>(&mut self, predicate: F) -> Result<Text> {
         let mut items = vec![];
         loop {
-            let node_type = self.node_type()?;
-            if !predicate(node_type) {
-                break;
-            }
-            if node_type == Type::NewLine {
+            let is_newline = {
+                let token = self.tokens.peek()?;
+                if !predicate(token) {
+                    break;
+                }
+                *token == NewLine
+            };
+            if is_newline {
                 self.eat(NewLine)?;
                 continue;
             }
@@ -272,7 +230,7 @@ impl<R: BufRead> Parser<R> {
     }
 
     /// Parse a single word.
-    fn word(&mut self) -> Result<Item> {
+    fn word(&mut self, _attributes: Vec<Attribute>) -> Result<Item> {
         if let Ok(Word(bytes)) = self.tokens.token() {
             Ok(Item::Word(String::from_utf8(bytes)?))
         }
